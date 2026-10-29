@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,6 +68,8 @@ data class Summary(
     val badges: List<Badge>,
 )
 
+private val SET_NUMBER = Regex("""\d{3,7}(-\d+)?""")
+
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val store = Store(app)
     private val api = RebrickableApi()
@@ -86,6 +89,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private var themes: Map<Int, String> = store.loadThemes()
     private var loadJob: Job? = null
+    private var themesJob: Job? = null
 
     /** Back stack; the app always opens on the timer. */
     val stack = mutableStateListOf<Screen>(Screen.Timer)
@@ -165,28 +169,50 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         loadJob = viewModelScope.launch { loadPage(reset = false) }
     }
 
-    private suspend fun loadPage(reset: Boolean) {
+    private suspend fun loadPage(reset: Boolean): Unit = coroutineScope {
         val key = effectiveKey
-        if (key.isBlank()) return
+        if (key.isBlank()) return@coroutineScope
         val page = if (reset) 1 else _catalog.value.page + 1
         _catalog.update {
             if (reset) it.copy(items = emptyList(), page = 0, hasMore = true, loading = true, error = null)
             else it.copy(loading = true, error = null)
         }
-        try {
-            if (themes.isEmpty()) {
-                themes = api.themes(key)
-                viewModelScope.launch(Dispatchers.IO) { store.saveThemes(themes) }
+        ensureThemes(key)
+        val q = _catalog.value.query.trim()
+        if (reset && SET_NUMBER.matches(q)) {
+            // Search can be very slow; a set number lookup usually answers much sooner.
+            launch {
+                val found = runCatching { api.getSet(key, if ('-' in q) q else "$q-1") }.getOrNull() ?: return@launch
+                val named = found.copy(themeName = themes[found.themeId] ?: "")
+                _catalog.update { c -> if (c.items.any { it.setNum == named.setNum }) c else c.copy(items = listOf(named) + c.items) }
             }
+        }
+        try {
             val res = api.searchSets(key, _catalog.value.query, page)
             val sets = res.results.map { it.copy(themeName = themes[it.themeId] ?: "") }
             _catalog.update {
-                it.copy(items = it.items + sets, total = res.count, page = page, hasMore = res.hasMore, loading = false)
+                it.copy(items = (it.items + sets).distinctBy { s -> s.setNum }, total = res.count, page = page, hasMore = res.hasMore, loading = false)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             _catalog.update { it.copy(loading = false, error = e.message ?: "Er ging iets mis.") }
+        }
+    }
+
+    /** The theme list is slow (~8s), so it loads alongside the sets and fills in names when ready. */
+    private fun ensureThemes(key: String) {
+        if (themes.isNotEmpty() || themesJob?.isActive == true) return
+        themesJob = viewModelScope.launch {
+            val loaded = runCatching { api.themes(key) }.getOrNull() ?: return@launch
+            themes = loaded
+            launch(Dispatchers.IO) { store.saveThemes(loaded) }
+            _catalog.update { c -> c.copy(items = c.items.map { it.copy(themeName = loaded[it.themeId] ?: it.themeName) }) }
+            update { d ->
+                d.copy(portfolio = d.portfolio.map { e ->
+                    if (e.set.themeName.isBlank()) e.copy(set = e.set.copy(themeName = loaded[e.set.themeId] ?: "")) else e
+                })
+            }
         }
     }
 

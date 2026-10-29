@@ -155,8 +155,8 @@ fun DetailScreen(
             Grid2(
                 listOf(
                     { m -> StatTile("Totale tijd", if (has) Fmt.dur(tot) else "—", m, accent = Brand.gradient) },
-                    { m -> StatTile("Sec / steen", if (has) Fmt.spb(tot, s.numParts) else "—", m, accent = solid(Brand.Blue)) },
-                    { m -> StatTile("Sessies", entry.sessions.size.toString(), m, accent = solid(Brand.Purple)) },
+                    { m -> StatTile("Sec / steen", if (has) Fmt.spb(tot, s.numParts) else "—", m, accent = solid(Brand.Lava2)) },
+                    { m -> StatTile("Sessies", entry.sessions.size.toString(), m, accent = solid(Brand.Lava1)) },
                     { m -> StatTile("Snelste sessie", entry.sessions.minOfOrNull { it.durSec }?.let(Fmt::dur) ?: "—", m, accent = solid(Brand.Success)) },
                     { m -> StatTile("Gem. sessie", if (has) Fmt.dur(tot / entry.sessions.size) else "—", m, accent = solid(Brand.Gold)) },
                     { m ->

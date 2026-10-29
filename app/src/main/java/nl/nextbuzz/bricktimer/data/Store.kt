@@ -107,6 +107,6 @@ private fun appDataFromJson(o: JSONObject): AppData {
         portfolio = portfolio,
         timer = TimerState(t?.optBoolean("running") ?: false, t?.optLong("start") ?: 0L),
         apiKey = o.optString("apiKey", ""),
-        themeMode = runCatching { ThemeMode.valueOf(o.getString("themeMode")) }.getOrDefault(ThemeMode.SYSTEM),
+        themeMode = runCatching { ThemeMode.valueOf(o.getString("themeMode")) }.getOrDefault(ThemeMode.DARK),
     )
 }

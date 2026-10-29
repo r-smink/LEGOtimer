@@ -20,10 +20,12 @@ import nl.nextbuzz.bricktimer.R
 import nl.nextbuzz.bricktimer.data.ThemeMode
 import kotlin.math.abs
 
-/** Fyndable brand tokens (tokens/colors.css). */
+/** Brand tokens: Fyndable neutrals/semantics with the BrickTimer "lava" palette. */
 object Brand {
-    val Purple = Color(0xFF8F39AC)
-    val Blue = Color(0xFF379FD3)
+    val Lava1 = Color(0xFFF97316)
+    val Lava2 = Color(0xFFDB2777)
+    /** --app-glow: coloured shadows under gradient surfaces */
+    val Glow = Lava2
     val Success = Color(0xFF10B981)
     val SuccessLight = Color(0xFFD1FAE5)
     val SuccessDark = Color(0xFF047857)
@@ -34,8 +36,10 @@ object Brand {
     val Danger = Color(0xFFEF4444)
     val DangerDark = Color(0xFFB91C1C)
 
-    /** --fyn-gradient: 135°, purple -> blue */
-    val gradient = Brush.linearGradient(listOf(Purple, Blue))
+    /** --app-grad: 135°, orange -> pink */
+    val gradient = Brush.linearGradient(listOf(Lava1, Lava2))
+    /** Wordmark "Timer" on dark surfaces */
+    val textGradient = Brush.linearGradient(listOf(Color(0xFFFDBA74), Color(0xFFF472B6)))
     val stopGradient = Brush.linearGradient(listOf(Danger, DangerDark))
 
     private val setGradients = listOf(
@@ -69,13 +73,13 @@ data class AppColors(
 val LightAppColors = AppColors(
     bg = Color(0xFFF4F5F7), card = Color.White, text = Color(0xFF111827), textMuted = Color(0xFF6B7280),
     textSubtle = Color(0xFF9CA3AF), border = Color(0xFFE5E7EB), sunken = Color(0xFFF9FAFB), track = Color(0xFFE5E7EB),
-    tint = Color(0xFFF4E9F8), accent = Brand.Purple, isDark = false,
+    tint = Color(0xFFFFEDD5), accent = Color(0xFFC2410C), isDark = false,
 )
 
 val DarkAppColors = AppColors(
     bg = Color(0xFF140D24), card = Color(0xFF211A38), text = Color(0xFFF3F0FA), textMuted = Color(0xFFA79CC0),
     textSubtle = Color(0xFF7D7196), border = Color.White.copy(alpha = .09f), sunken = Color.White.copy(alpha = .05f),
-    track = Color.White.copy(alpha = .12f), tint = Brand.Purple.copy(alpha = .30f), accent = Color(0xFFC08ADF), isDark = true,
+    track = Color.White.copy(alpha = .12f), tint = Brand.Lava2.copy(alpha = .32f), accent = Color(0xFFFB9A6B), isDark = true,
 )
 
 val LocalAppColors = staticCompositionLocalOf { LightAppColors }

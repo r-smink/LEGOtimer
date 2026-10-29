@@ -31,6 +31,10 @@ class RebrickableApi {
         )
     }
 
+    /** Direct lookup by full set number, e.g. "75192-1". */
+    suspend fun getSet(key: String, setNum: String): LegoSet =
+        parseSet(get(key, "lego/sets/" + URLEncoder.encode(setNum, "UTF-8") + "/"))
+
     /** All themes as id -> name. */
     suspend fun themes(key: String): Map<Int, String> {
         val out = HashMap<Int, String>()
@@ -61,7 +65,7 @@ class RebrickableApi {
     private suspend fun get(key: String, path: String): JSONObject = withContext(Dispatchers.IO) {
         val conn = (URL(base + path).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
-            readTimeout = 20_000
+            readTimeout = 60_000 // Rebrickable search can take up to its 60s gateway limit
             setRequestProperty("Authorization", "key $key")
             setRequestProperty("Accept", "application/json")
         }
@@ -71,7 +75,7 @@ class RebrickableApi {
                 401, 403 -> throw ApiException("Ongeldige of ontbrekende Rebrickable API-sleutel.")
                 404 -> throw ApiException("Niet gevonden op Rebrickable.")
                 429 -> throw ApiException("Te veel verzoeken. Probeer het over een paar seconden opnieuw.")
-                else -> throw ApiException("Rebrickable gaf een fout ($code).")
+                else -> throw ApiException(if (code == 502 || code == 503 || code == 504) "Rebrickable is traag of onbereikbaar. Probeer het opnieuw." else "Rebrickable gaf een fout ($code).")
             }
         } catch (e: IOException) {
             throw ApiException("Geen verbinding met Rebrickable. Controleer je internet.")

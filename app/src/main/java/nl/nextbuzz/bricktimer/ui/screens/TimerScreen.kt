@@ -55,6 +55,8 @@ import nl.nextbuzz.bricktimer.data.AppData
 import nl.nextbuzz.bricktimer.logic.Fmt
 import nl.nextbuzz.bricktimer.ui.GradientButton
 import nl.nextbuzz.bricktimer.ui.IconCircle
+import nl.nextbuzz.bricktimer.ui.LogoTile
+import nl.nextbuzz.bricktimer.ui.Wordmark
 import nl.nextbuzz.bricktimer.ui.Overline
 import nl.nextbuzz.bricktimer.ui.SetThumb
 import nl.nextbuzz.bricktimer.ui.StatTile
@@ -94,15 +96,9 @@ fun TimerScreen(
         Row(Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 18.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Overline(greeting)
-                T("BrickTimer", 26.sp, Modifier.padding(top = 2.dp), weight = FontWeight.Bold, letterSpacing = (-0.025).em)
+                Wordmark(26.sp, c.text, if (c.isDark) Brand.textGradient else Brand.gradient, Modifier.padding(top = 2.dp))
             }
-            Box(
-                Modifier.size(44.dp)
-                    .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Brand.Purple, spotColor = Brand.Purple)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Brand.gradient),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Schedule, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
+            LogoTile(44.dp)
         }
 
         val cur = data.current
@@ -142,7 +138,7 @@ fun TimerScreen(
                 modifier = Modifier.fillMaxWidth(),
                 icon = if (running) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
                 brush = if (running) Brand.stopGradient else Brand.gradient,
-                glow = if (running) Brand.Danger else Brand.Purple,
+                glow = if (running) Brand.Danger else Brand.Glow,
                 radius = 14.dp,
                 fontSize = 17.sp,
                 vertical = 17.dp,
@@ -190,7 +186,7 @@ private fun TimerRing(fraction: Float, track: Color) {
         drawArc(track, 0f, 360f, false, topLeft, arcSize, style = Stroke(stroke))
         if (fraction > 0.002f) {
             drawArc(
-                brush = Brush.linearGradient(listOf(Brand.Purple, Brand.Blue), Offset.Zero, Offset(size.width, size.height)),
+                brush = Brush.linearGradient(listOf(Brand.Lava1, Brand.Lava2), Offset.Zero, Offset(size.width, size.height)),
                 startAngle = -90f,
                 sweepAngle = 360f * fraction,
                 useCenter = false,

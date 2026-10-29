@@ -37,7 +37,7 @@ data class AppData(
     val portfolio: List<PortfolioEntry> = emptyList(),
     val timer: TimerState = TimerState(),
     val apiKey: String = "",
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themeMode: ThemeMode = ThemeMode.DARK,
 ) {
     val current: PortfolioEntry? get() = portfolio.firstOrNull { it.status == BuildStatus.CURRENT }
     fun entry(setNum: String): PortfolioEntry? = portfolio.firstOrNull { it.set.setNum == setNum }

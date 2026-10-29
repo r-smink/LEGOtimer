@@ -54,7 +54,7 @@ fun AchievementsScreen(data: AppData) {
 
         val shape = RoundedCornerShape(16.dp)
         Row(
-            Modifier.fillMaxWidth().padding(bottom = 20.dp).shadow(10.dp, shape, ambientColor = Brand.Purple, spotColor = Brand.Purple)
+            Modifier.fillMaxWidth().padding(bottom = 20.dp).shadow(10.dp, shape, ambientColor = Brand.Glow, spotColor = Brand.Glow)
                 .clip(shape).background(Brand.gradient).padding(18.dp).height(56.dp),
         ) {
             HeroStat(totalStars, "Sterren", Modifier.weight(1f))
@@ -77,15 +77,15 @@ private fun HeroStat(value: Int, label: String, modifier: Modifier) {
 }
 
 private val gold = Brand.Gold
-private val platinumColor = Color(0xFF8F39AC)
+private val platinumColor = Brand.Lava2
 
 @Composable
 private fun AchievementCard(a: Achievement) {
     val c = LocalAppColors.current
     val (icon, chip) = when (a.kind) {
-        AchievementKind.EVENING -> Icons.Rounded.NightsStay to Brush.linearGradient(listOf(Color(0xFF8F39AC), Color(0xFF4C1D95)))
+        AchievementKind.EVENING -> Icons.Rounded.NightsStay to Brush.linearGradient(listOf(Color(0xFFDB2777), Color(0xFF831843)))
         AchievementKind.MORNING -> Icons.Rounded.WbSunny to Brush.linearGradient(listOf(Color(0xFFF59E0B), Color(0xFFF97316)))
-        AchievementKind.SPEED -> Icons.Rounded.Speed to Brush.linearGradient(listOf(Color(0xFF379FD3), Color(0xFF0E7490)))
+        AchievementKind.SPEED -> Icons.Rounded.Speed to Brush.linearGradient(listOf(Color(0xFFE11D48), Color(0xFF9F1239)))
     }
     val emptyStar = if (c.isDark) Color.White.copy(alpha = .15f) else Color(0xFFE5E7EB)
     Column(Modifier.fillMaxWidth().card(16.dp).padding(16.dp)) {

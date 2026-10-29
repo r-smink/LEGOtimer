@@ -272,7 +272,7 @@ private fun SettingsDialog(apiKey: String, themeMode: ThemeMode, onSave: (String
 
             Overline("Weergave", Modifier.padding(top = 18.dp, bottom = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(ThemeMode.SYSTEM to "Systeem", ThemeMode.LIGHT to "Licht", ThemeMode.DARK to "Donker").forEach { (m, label) ->
+                listOf(ThemeMode.DARK to "Donker", ThemeMode.LIGHT to "Licht", ThemeMode.SYSTEM to "Systeem").forEach { (m, label) ->
                     val sel = m == mode
                     T(
                         label, 13.sp,

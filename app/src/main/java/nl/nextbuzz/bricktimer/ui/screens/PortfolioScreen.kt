@@ -65,7 +65,7 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
     ) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                ScreenTitle("Mijn builds", "${data.portfolio.size} sets in portfolio · $built gebouwd", Modifier.weight(1f))
+                ScreenTitle("Mijn builds", "${data.portfolio.size} ${if (data.portfolio.size == 1) "set" else "sets"} in portfolio · $built gebouwd", Modifier.weight(1f))
                 OutlineButton("Historie", onHistory, icon = Icons.Rounded.History)
             }
         }
@@ -75,7 +75,7 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
                 val shape = RoundedCornerShape(16.dp)
                 Box(
                     Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        .shadow(10.dp, shape, ambientColor = Brand.Purple, spotColor = Brand.Purple)
+                        .shadow(10.dp, shape, ambientColor = Brand.Glow, spotColor = Brand.Glow)
                         .clip(shape).background(Brand.gradient).clickable { onOpen(cur.set) }.padding(18.dp),
                 ) {
                     Box(Modifier.matchParentSize()) { Box(Modifier.align(Alignment.TopEnd).offset(42.dp, (-42).dp).size(120.dp).clip(CircleShape).background(Color.White.copy(alpha = .1f))) }

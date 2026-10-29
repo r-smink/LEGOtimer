@@ -105,7 +105,7 @@ fun GradientButton(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     brush: Brush = Brand.gradient,
-    glow: Color = Brand.Purple,
+    glow: Color = Brand.Glow,
     radius: Dp = 8.dp,
     fontSize: TextUnit = 15.sp,
     vertical: Dp = 13.dp,

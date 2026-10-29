@@ -120,7 +120,7 @@ fun CatalogScreen(
         }
 
         if (state.items.isNotEmpty()) {
-            item { Overline("${Fmt.pieces(state.total)} sets gevonden", Modifier.padding(start = 2.dp, top = 6.dp)) }
+            item { Overline("${Fmt.pieces(state.total)} ${if (state.total == 1) "set" else "sets"} gevonden", Modifier.padding(start = 2.dp, top = 6.dp)) }
         }
         items(state.items, key = { it.setNum }) { set ->
             CatalogRow(set, inPortfolio = data.entry(set.setNum) != null, onOpen = { onOpen(set) }, onAdd = { onAdd(set) })
@@ -199,7 +199,7 @@ private fun CatalogRow(set: LegoSet, inPortfolio: Boolean, onOpen: () -> Unit, o
         } else {
             T(
                 "+ Toevoegen", 12.5.sp,
-                Modifier.shadow(4.dp, shape, ambientColor = Brand.Purple, spotColor = Brand.Purple).clip(shape)
+                Modifier.shadow(4.dp, shape, ambientColor = Brand.Glow, spotColor = Brand.Glow).clip(shape)
                     .background(Brand.gradient).clickable(onClick = onAdd).padding(horizontal = 13.dp, vertical = 9.dp),
                 weight = FontWeight.SemiBold, color = Color.White,
             )
