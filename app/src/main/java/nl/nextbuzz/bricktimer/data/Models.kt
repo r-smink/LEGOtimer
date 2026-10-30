@@ -10,10 +10,15 @@ data class LegoSet(
     val numParts: Int,
     val imgUrl: String?,
     val setUrl: String?,
+    /** Total minifigures (sum of quantities); null until fetched from Rebrickable. */
+    val numMinifigs: Int? = null,
 ) {
     /** "75192-1" -> "75192"; other variants keep their suffix. */
     val displayNumber: String get() = setNum.removeSuffix("-1")
 }
+
+/** A Rebrickable theme; sub-themes point at their parent. */
+data class Theme(val id: Int, val name: String, val parentId: Int?)
 
 enum class BuildStatus { PLANNED, CURRENT, DONE }
 

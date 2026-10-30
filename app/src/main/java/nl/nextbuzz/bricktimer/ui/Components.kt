@@ -236,3 +236,23 @@ fun EmptyCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
         content = content,
     )
 }
+
+/** Rounded filter chip; selected chips use the accent tint. */
+@Composable
+fun Chip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    val c = LocalAppColors.current
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        modifier
+            .clip(shape)
+            .background(if (selected) c.tint else c.card)
+            .border(2.dp, if (selected) c.accent.copy(alpha = .35f) else c.border, shape)
+            .clickable(onClick = onClick)
+            .padding(start = 13.dp, end = if (icon != null) 9.dp else 13.dp, top = 7.dp, bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        T(label, 13.sp, weight = FontWeight.SemiBold, color = if (selected) c.accent else c.textMuted, maxLines = 1)
+        if (icon != null) Icon(icon, null, tint = if (selected) c.accent else c.textSubtle, modifier = Modifier.size(16.dp))
+    }
+}

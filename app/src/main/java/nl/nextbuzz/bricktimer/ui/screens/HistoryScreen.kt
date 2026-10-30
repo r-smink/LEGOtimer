@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import nl.nextbuzz.bricktimer.data.AppData
+import nl.nextbuzz.bricktimer.data.BuildStatus
 import nl.nextbuzz.bricktimer.data.LegoSet
 import nl.nextbuzz.bricktimer.logic.Fmt
 import nl.nextbuzz.bricktimer.ui.SetThumb
@@ -38,7 +39,7 @@ import nl.nextbuzz.bricktimer.ui.theme.LocalAppColors
 @Composable
 fun HistoryScreen(data: AppData, onBack: () -> Unit, onOpen: (LegoSet) -> Unit) {
     val c = LocalAppColors.current
-    val rows = data.portfolio.flatMap { e -> e.sessions.map { e.set to it } }.sortedByDescending { it.second.startMs }
+    val rows = data.portfolio.flatMap { e -> e.sessions.map { e to it } }.sortedByDescending { it.second.startMs }
     val totalSec = rows.sumOf { it.second.durSec }
 
     LazyColumn(
@@ -67,7 +68,8 @@ fun HistoryScreen(data: AppData, onBack: () -> Unit, onOpen: (LegoSet) -> Unit) 
                 )
             }
         }
-        items(rows, key = { it.second.id }) { (set, se) ->
+        items(rows, key = { it.second.id }) { (e, se) ->
+            val set = e.set
             Row(
                 Modifier.fillMaxWidth().card(13.dp) { onOpen(set) }.padding(13.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -80,7 +82,7 @@ fun HistoryScreen(data: AppData, onBack: () -> Unit, onOpen: (LegoSet) -> Unit) 
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     T(Fmt.dur(se.durSec), 15.sp, weight = FontWeight.Bold)
-                    T("${Fmt.spb(se.durSec, set.numParts)}/steen", 11.sp, color = c.textSubtle)
+                    if (e.status == BuildStatus.DONE) T("${Fmt.spb(se.durSec, set.numParts)}/steen", 11.sp, color = c.textSubtle)
                 }
             }
         }

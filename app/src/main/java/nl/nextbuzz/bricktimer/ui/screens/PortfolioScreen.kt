@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +24,10 @@ import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +42,7 @@ import nl.nextbuzz.bricktimer.data.AppData
 import nl.nextbuzz.bricktimer.data.BuildStatus
 import nl.nextbuzz.bricktimer.data.LegoSet
 import nl.nextbuzz.bricktimer.logic.Fmt
+import nl.nextbuzz.bricktimer.ui.Chip
 import nl.nextbuzz.bricktimer.ui.EmptyCard
 import nl.nextbuzz.bricktimer.ui.GradientButton
 import nl.nextbuzz.bricktimer.ui.IconCircle
@@ -55,8 +61,12 @@ private val statusOrder = mapOf(BuildStatus.CURRENT to 0, BuildStatus.PLANNED to
 @Composable
 fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> Unit, onBrowse: () -> Unit) {
     val c = LocalAppColors.current
-    val entries = data.portfolio.sortedWith(compareBy<nl.nextbuzz.bricktimer.data.PortfolioEntry> { statusOrder[it.status] }.thenByDescending { it.addedMs })
+    val all = data.portfolio.sortedWith(compareBy<nl.nextbuzz.bricktimer.data.PortfolioEntry> { statusOrder[it.status] }.thenByDescending { it.addedMs })
     val built = data.portfolio.count { it.status == BuildStatus.DONE }
+    val themes = data.portfolio.filter { it.set.themeName.isNotBlank() }.map { it.set.themeId to it.set.themeName }.distinct().sortedBy { it.second }
+    var themeFilter by rememberSaveable { mutableStateOf<Int?>(null) }
+    val activeFilter = themeFilter?.takeIf { id -> themes.any { it.first == id } }
+    val entries = if (activeFilter == null) all else all.filter { it.set.themeId == activeFilter }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -97,7 +107,7 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
             }
         }
 
-        if (entries.isEmpty()) {
+        if (all.isEmpty()) {
             item {
                 EmptyCard {
                     IconCircle(Icons.Rounded.Inventory2, 72.dp, 34.dp)
@@ -109,7 +119,15 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
             return@LazyColumn
         }
 
-        item { Overline("Alle sets", Modifier.padding(start = 2.dp)) }
+        if (themes.size >= 2) {
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { Chip("Alle thema's", activeFilter == null, { themeFilter = null }) }
+                    items(themes, key = { it.first }) { (id, name) -> Chip(name, activeFilter == id, { themeFilter = if (activeFilter == id) null else id }) }
+                }
+            }
+        }
+        item { Overline(if (activeFilter == null) "Alle sets" else "${entries.size} ${if (entries.size == 1) "set" else "sets"} in dit thema", Modifier.padding(start = 2.dp)) }
         items(entries, key = { it.set.setNum }) { e ->
             Row(
                 Modifier.fillMaxWidth().card(14.dp) { onOpen(e.set) }.padding(12.dp),
@@ -120,7 +138,8 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
                 Column(Modifier.weight(1f)) {
                     T(e.set.name, 15.sp, weight = FontWeight.SemiBold, maxLines = 1)
                     val sub = if (e.sessions.isNotEmpty()) {
-                        "${Fmt.dur(e.totalSec)} · ${e.sessions.size} ${if (e.sessions.size == 1) "sessie" else "sessies"} · ${Fmt.spb(e.totalSec, e.set.numParts)}/steen"
+                        "${Fmt.dur(e.totalSec)} · ${e.sessions.size} ${if (e.sessions.size == 1) "sessie" else "sessies"}" +
+                            if (e.status == BuildStatus.DONE) " · ${Fmt.spb(e.totalSec, e.set.numParts)}/steen" else ""
                     } else {
                         "${e.set.displayNumber} · ${Fmt.pieces(e.set.numParts)} stukjes"
                     }

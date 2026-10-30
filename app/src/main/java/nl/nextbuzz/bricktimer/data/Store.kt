@@ -9,7 +9,7 @@ import java.io.File
 /** Persists the portfolio, sessions, timer and settings as JSON in app storage. */
 class Store(context: Context) {
     private val dataFile = AtomicFile(File(context.filesDir, "bricktimer.json"))
-    private val themesFile = AtomicFile(File(context.filesDir, "themes.json"))
+    private val themesFile = AtomicFile(File(context.filesDir, "themes_v2.json"))
 
     fun load(): AppData = try {
         if (dataFile.baseFile.exists()) appDataFromJson(JSONObject(read(dataFile))) else AppData()
@@ -20,18 +20,23 @@ class Store(context: Context) {
     @Synchronized
     fun save(data: AppData) = write(dataFile, appDataToJson(data).toString())
 
-    fun loadThemes(): Map<Int, String> = try {
+    fun loadThemes(): Map<Int, Theme> = try {
         if (!themesFile.baseFile.exists()) emptyMap()
-        else JSONObject(read(themesFile)).let { o -> o.keys().asSequence().associate { it.toInt() to o.getString(it) } }
+        else JSONArray(read(themesFile)).let { arr ->
+            (0 until arr.length()).map { arr.getJSONObject(it) }.associate { o ->
+                val id = o.getInt("id")
+                id to Theme(id, o.getString("name"), if (o.isNull("parent")) null else o.getInt("parent"))
+            }
+        }
     } catch (e: Exception) {
         emptyMap()
     }
 
     @Synchronized
-    fun saveThemes(themes: Map<Int, String>) {
-        val o = JSONObject()
-        themes.forEach { (id, name) -> o.put(id.toString(), name) }
-        write(themesFile, o.toString())
+    fun saveThemes(themes: Map<Int, Theme>) {
+        val arr = JSONArray()
+        themes.values.forEach { t -> arr.put(JSONObject().put("id", t.id).put("name", t.name).put("parent", t.parentId ?: JSONObject.NULL)) }
+        write(themesFile, arr.toString())
     }
 
     private fun read(f: AtomicFile) = String(f.readFully(), Charsets.UTF_8)
@@ -53,6 +58,7 @@ fun legoSetToJson(s: LegoSet) = JSONObject()
     .put("set_num", s.setNum).put("name", s.name).put("year", s.year)
     .put("theme_id", s.themeId).put("theme_name", s.themeName).put("num_parts", s.numParts)
     .put("set_img_url", s.imgUrl ?: JSONObject.NULL).put("set_url", s.setUrl ?: JSONObject.NULL)
+    .put("num_minifigs", s.numMinifigs ?: JSONObject.NULL)
 
 fun legoSetFromJson(o: JSONObject) = LegoSet(
     setNum = o.getString("set_num"),
@@ -63,6 +69,7 @@ fun legoSetFromJson(o: JSONObject) = LegoSet(
     numParts = o.optInt("num_parts"),
     imgUrl = o.optStringOrNull("set_img_url"),
     setUrl = o.optStringOrNull("set_url"),
+    numMinifigs = if (o.has("num_minifigs") && !o.isNull("num_minifigs")) o.optInt("num_minifigs") else null,
 )
 
 private fun appDataToJson(d: AppData): JSONObject {

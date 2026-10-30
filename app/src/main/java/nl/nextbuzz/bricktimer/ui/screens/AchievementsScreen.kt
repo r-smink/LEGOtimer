@@ -15,8 +15,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsRun
+import androidx.compose.material.icons.rounded.Apartment
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.WbSunny
@@ -34,7 +45,10 @@ import androidx.compose.ui.unit.sp
 import nl.nextbuzz.bricktimer.data.AppData
 import nl.nextbuzz.bricktimer.logic.Achievement
 import nl.nextbuzz.bricktimer.logic.AchievementKind
+import nl.nextbuzz.bricktimer.logic.Challenge
+import nl.nextbuzz.bricktimer.logic.ChallengeKind
 import nl.nextbuzz.bricktimer.logic.achievements
+import nl.nextbuzz.bricktimer.logic.challenges
 import nl.nextbuzz.bricktimer.ui.Overline
 import nl.nextbuzz.bricktimer.ui.ScreenTitle
 import nl.nextbuzz.bricktimer.ui.T
@@ -45,26 +59,103 @@ import nl.nextbuzz.bricktimer.ui.theme.LocalAppColors
 @Composable
 fun AchievementsScreen(data: AppData) {
     val list = achievements(data)
-    val totalStars = list.sumOf { if (it.platinum) 0 else it.stars }
+    val challengeList = challenges(data)
+    val titles = challengeList.sumOf { it.level }
+    // Every challenge tier reached earns a star on top of the habit stars.
+    val totalStars = list.sumOf { if (it.platinum) 0 else it.stars } + titles
     val platinumStars = list.sumOf { if (it.platinum) 3 else 0 }
-    val unlocked = list.count { it.count >= 25 }
+    val rank = challengeList.first { it.kind == ChallengeKind.RANK }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 30.dp)) {
-        ScreenTitle("Awards", "Verdien sterren met je bouwsessies", Modifier.padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 16.dp))
+        ScreenTitle("Awards", "Verdien sterren en titels met bouwen", Modifier.padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 16.dp))
 
         val shape = RoundedCornerShape(16.dp)
-        Row(
+        val divider = Color.White.copy(alpha = .25f)
+        Column(
             Modifier.fillMaxWidth().padding(bottom = 20.dp).shadow(10.dp, shape, ambientColor = Brand.Glow, spotColor = Brand.Glow)
-                .clip(shape).background(Brand.gradient).padding(18.dp).height(56.dp),
+                .clip(shape).background(Brand.gradient).padding(18.dp),
         ) {
-            HeroStat(totalStars, "Sterren", Modifier.weight(1f))
-            Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = .25f)))
-            HeroStat(platinumStars, "Platinum", Modifier.weight(1f))
-            Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = .25f)))
-            HeroStat(unlocked, "Unlocked", Modifier.weight(1f))
+            Overline("Jouw bouwrang", color = Color.White.copy(alpha = .85f), size = 11.sp)
+            Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Rounded.MilitaryTech, null, tint = Color.White, modifier = Modifier.size(28.dp))
+                T(rank.title ?: "Nog geen titel", 26.sp, weight = FontWeight.Bold, color = Color.White)
+            }
+            T(
+                "${rank.kind.fmt(rank.value)} gebouwd · ${rank.nextLabel.replaceFirstChar { it.lowercase() }}", 13.sp,
+                Modifier.padding(top = 4.dp, bottom = 10.dp), color = Color.White.copy(alpha = .85f),
+            )
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(divider)) {
+                Box(Modifier.fillMaxWidth(rank.progress.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(Color.White))
+            }
+            Box(Modifier.padding(vertical = 14.dp).fillMaxWidth().height(1.dp).background(divider))
+            Row(Modifier.height(IntrinsicSize.Min)) {
+                HeroStat(totalStars, "Sterren", Modifier.weight(1f))
+                Box(Modifier.width(1.dp).fillMaxHeight().background(divider))
+                HeroStat(platinumStars, "Platinum", Modifier.weight(1f))
+                Box(Modifier.width(1.dp).fillMaxHeight().background(divider))
+                HeroStat(titles, "Titels", Modifier.weight(1f))
+            }
         }
 
+        Overline("Challenges", Modifier.padding(start = 2.dp, bottom = 10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { challengeList.forEach { ChallengeCard(it) } }
+
+        Overline("Bouwgewoontes", Modifier.padding(start = 2.dp, top = 24.dp, bottom = 10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { list.forEach { AchievementCard(it) } }
+    }
+}
+
+private fun challengeStyle(kind: ChallengeKind) = when (kind) {
+    ChallengeKind.RANK -> Icons.Rounded.MilitaryTech to listOf(0xFFF97316, 0xFFDB2777)
+    ChallengeKind.BRICKS -> Icons.Rounded.Widgets to listOf(0xFFEF4444, 0xFFB91C1C)
+    ChallengeKind.HOURS -> Icons.Rounded.HourglassBottom to listOf(0xFF0EA5E9, 0xFF1D4ED8)
+    ChallengeKind.BIG_SET -> Icons.Rounded.Apartment to listOf(0xFF64748B, 0xFF1E293B)
+    ChallengeKind.THEMES -> Icons.Rounded.Explore to listOf(0xFF14B8A6, 0xFF0F766E)
+    ChallengeKind.MARATHON -> Icons.AutoMirrored.Rounded.DirectionsRun to listOf(0xFF8B5CF6, 0xFF6D28D9)
+    ChallengeKind.STREAK -> Icons.Rounded.LocalFireDepartment to listOf(0xFFF59E0B, 0xFFEA580C)
+    ChallengeKind.MINIFIGS -> Icons.Rounded.Groups to listOf(0xFFEAB308, 0xFFCA8A04)
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChallengeCard(ch: Challenge) {
+    val c = LocalAppColors.current
+    val (icon, colors) = challengeStyle(ch.kind)
+    Column(Modifier.fillMaxWidth().card(16.dp).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+            Box(Modifier.size(50.dp).clip(RoundedCornerShape(13.dp)).background(Brush.linearGradient(colors.map { Color(it) })), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = Color.White, modifier = Modifier.size(26.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                T(ch.kind.title, 16.sp, weight = FontWeight.Bold)
+                T(ch.kind.desc, 12.5.sp, color = c.textMuted, lineHeight = 17.sp)
+            }
+            // One star per tier; all stars turn platinum once the highest title is reached.
+            val emptyStar = if (c.isDark) Color.White.copy(alpha = .15f) else Color(0xFFE5E7EB)
+            Row {
+                for (i in 1..ch.kind.tiers.size) {
+                    val col = when {
+                        ch.maxed -> platinumColor
+                        i <= ch.level -> gold
+                        else -> emptyStar
+                    }
+                    Icon(Icons.Rounded.Star, null, tint = col, modifier = Modifier.size(17.dp))
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.Bottom) {
+            T(ch.title ?: ch.kind.fmt(ch.value), 13.sp, Modifier.weight(1f), weight = FontWeight.SemiBold, maxLines = 1)
+            T(ch.nextLabel, 12.sp, color = c.textSubtle, maxLines = 1)
+        }
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(c.track)) {
+            Box(
+                Modifier.fillMaxWidth(ch.progress.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(4.dp))
+                    .background(if (ch.maxed) Brand.gradient else Brush.linearGradient(listOf(gold, gold))),
+            )
+        }
+        FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            ch.kind.tiers.forEach { t -> Milestone("${ch.kind.fmt(t.threshold)} · ${t.title}", ch.value >= t.threshold) }
+        }
     }
 }
 

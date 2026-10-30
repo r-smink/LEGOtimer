@@ -68,6 +68,7 @@ import nl.nextbuzz.bricktimer.ui.theme.LocalAppColors
 fun DetailScreen(
     data: AppData,
     set: LegoSet,
+    minifigs: Int?,
     onBack: () -> Unit,
     onAdd: () -> Unit,
     onSetCurrent: () -> Unit,
@@ -112,12 +113,13 @@ fun DetailScreen(
 
             Overline("Set gegevens", Modifier.padding(bottom = 10.dp))
             Grid2(
-                listOf(
-                    { m -> StatTile("Stukjes", Fmt.pieces(s.numParts), m, valueSize = 20.sp) },
-                    { m -> StatTile("Setnummer", s.setNum, m, valueSize = 20.sp) },
-                    { m -> StatTile("Thema", s.themeName.ifBlank { "—" }, m, valueSize = 16.sp) },
-                    { m -> StatTile("Jaar", s.year.toString(), m, valueSize = 20.sp) },
-                ),
+                buildList<@Composable (Modifier) -> Unit> {
+                    add { m -> StatTile("Stukjes", Fmt.pieces(s.numParts), m, valueSize = 20.sp) }
+                    add { m -> StatTile("Setnummer", s.setNum, m, valueSize = 20.sp) }
+                    add { m -> StatTile("Thema", s.themeName.ifBlank { "—" }, m, valueSize = 16.sp) }
+                    add { m -> StatTile("Jaar", s.year.toString(), m, valueSize = 20.sp) }
+                    if (minifigs != null && minifigs > 0) add { m -> StatTile("Minifiguren", minifigs.toString(), m, valueSize = 20.sp) }
+                },
             )
             if (s.setUrl != null) {
                 Row(
@@ -151,20 +153,25 @@ fun DetailScreen(
 
             val has = entry.sessions.isNotEmpty()
             val tot = entry.totalSec
+            // Per-brick speed is only meaningful once the whole set is built.
+            val done = entry.status == BuildStatus.DONE && has
             Overline("Jouw statistieken", Modifier.padding(bottom = 10.dp))
             Grid2(
-                listOf(
-                    { m -> StatTile("Totale tijd", if (has) Fmt.dur(tot) else "—", m, accent = Brand.gradient) },
-                    { m -> StatTile("Sec / steen", if (has) Fmt.spb(tot, s.numParts) else "—", m, accent = solid(Brand.Lava2)) },
-                    { m -> StatTile("Sessies", entry.sessions.size.toString(), m, accent = solid(Brand.Lava1)) },
-                    { m -> StatTile("Snelste sessie", entry.sessions.minOfOrNull { it.durSec }?.let(Fmt::dur) ?: "—", m, accent = solid(Brand.Success)) },
-                    { m -> StatTile("Gem. sessie", if (has) Fmt.dur(tot / entry.sessions.size) else "—", m, accent = solid(Brand.Gold)) },
-                    { m ->
-                        val perMin = if (tot > 0) s.numParts * 60.0 / tot else 0.0
-                        StatTile("Stenen / min", if (has) String.format(java.util.Locale.forLanguageTag("nl-NL"), "%.1f", perMin) else "—", m, accent = solid(Brand.Danger))
-                    },
-                ),
+                buildList<@Composable (Modifier) -> Unit> {
+                    add { m -> StatTile("Totale tijd", if (has) Fmt.dur(tot) else "—", m, accent = Brand.gradient) }
+                    if (done) add { m -> StatTile("Sec / steen", Fmt.spb(tot, s.numParts), m, accent = solid(Brand.Lava2)) }
+                    add { m -> StatTile("Sessies", entry.sessions.size.toString(), m, accent = solid(Brand.Lava1)) }
+                    add { m -> StatTile("Snelste sessie", entry.sessions.minOfOrNull { it.durSec }?.let(Fmt::dur) ?: "—", m, accent = solid(Brand.Success)) }
+                    add { m -> StatTile("Gem. sessie", if (has) Fmt.dur(tot / entry.sessions.size) else "—", m, accent = solid(Brand.Gold)) }
+                    if (done) add { m ->
+                        val perMin = s.numParts * 60.0 / tot
+                        StatTile("Stenen / min", String.format(java.util.Locale.forLanguageTag("nl-NL"), "%.1f", perMin), m, accent = solid(Brand.Danger))
+                    }
+                },
             )
+            if (has && !done) {
+                T("Sec / steen en stenen / min verschijnen zodra de set klaar is.", 12.sp, Modifier.padding(top = 8.dp, start = 2.dp), color = c.textSubtle)
+            }
             if (has) {
                 val first = entry.sessions.minOf { it.startMs }
                 val period = buildString {
@@ -175,7 +182,7 @@ fun DetailScreen(
             }
             Spacer(Modifier.height(12.dp))
 
-            if (has && tot.toDouble() / s.numParts < SPEED_LIMIT_SEC_PER_BRICK) {
+            if (done && tot.toDouble() / s.numParts < SPEED_LIMIT_SEC_PER_BRICK) {
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(10.dp)).background(c.tint).padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -195,7 +202,7 @@ fun DetailScreen(
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    entry.sessions.sortedByDescending { it.startMs }.forEach { se -> SessionRow(se, s.numParts) { sessionToDelete = se } }
+                    entry.sessions.sortedByDescending { it.startMs }.forEach { se -> SessionRow(se, s.numParts.takeIf { done }) { sessionToDelete = se } }
                 }
                 T("Houd een sessie ingedrukt om hem te verwijderen.", 11.5.sp, Modifier.padding(top = 8.dp, start = 2.dp), color = c.textSubtle)
             }
@@ -233,7 +240,7 @@ private fun solid(color: Color): Brush = Brush.linearGradient(listOf(color, colo
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SessionRow(se: Session, pieces: Int, onLongPress: () -> Unit) {
+private fun SessionRow(se: Session, pieces: Int?, onLongPress: () -> Unit) {
     val c = LocalAppColors.current
     Row(
         Modifier.fillMaxWidth().card(12.dp).combinedClickable(onClick = {}, onLongClick = onLongPress).padding(horizontal = 14.dp, vertical = 13.dp),
@@ -245,7 +252,7 @@ private fun SessionRow(se: Session, pieces: Int, onLongPress: () -> Unit) {
         }
         Column(Modifier.weight(1f)) {
             T(Fmt.date(se.startMs), 14.sp, weight = FontWeight.SemiBold)
-            T("${Fmt.range(se.startMs, se.durSec)} · ${Fmt.spb(se.durSec, pieces)}/steen", 12.sp, color = c.textMuted)
+            T(Fmt.range(se.startMs, se.durSec) + (pieces?.let { " · ${Fmt.spb(se.durSec, it)}/steen" } ?: ""), 12.sp, color = c.textMuted)
         }
         T(Fmt.dur(se.durSec), 15.sp, weight = FontWeight.Bold)
     }

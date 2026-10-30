@@ -16,10 +16,19 @@ data class SetPage(val count: Int, val hasMore: Boolean, val results: List<LegoS
 class RebrickableApi {
     private val base = "https://rebrickable.com/api/v3/"
 
-    /** Sets matching [query] (name or set number), newest first. Sets without parts are skipped. */
-    suspend fun searchSets(key: String, query: String, page: Int, pageSize: Int = 20): SetPage {
+    /**
+     * Sets matching [query] (name or set number), newest first. Sets without parts are skipped.
+     * [themeId] filters on exactly that theme; Rebrickable does not include its sub-themes.
+     * [minParts] and [maxParts] are inclusive piece-count bounds.
+     */
+    suspend fun searchSets(
+        key: String, query: String, page: Int,
+        themeId: Int? = null, minParts: Int = 1, maxParts: Int? = null, pageSize: Int = 20,
+    ): SetPage {
         val params = buildString {
-            append("page=$page&page_size=$pageSize&min_parts=1&ordering=-year,-num_parts")
+            append("page=$page&page_size=$pageSize&min_parts=${maxOf(1, minParts)}&ordering=-year,-num_parts")
+            if (maxParts != null) append("&max_parts=$maxParts")
+            if (themeId != null) append("&theme_id=$themeId")
             if (query.isNotBlank()) append("&search=").append(URLEncoder.encode(query.trim(), "UTF-8"))
         }
         val o = get(key, "lego/sets/?$params")
@@ -35,16 +44,24 @@ class RebrickableApi {
     suspend fun getSet(key: String, setNum: String): LegoSet =
         parseSet(get(key, "lego/sets/" + URLEncoder.encode(setNum, "UTF-8") + "/"))
 
-    /** All themes as id -> name. */
-    suspend fun themes(key: String): Map<Int, String> {
-        val out = HashMap<Int, String>()
+    /** Total number of minifigures in a set, counting duplicates. */
+    suspend fun minifigCount(key: String, setNum: String): Int {
+        val o = get(key, "lego/sets/" + URLEncoder.encode(setNum, "UTF-8") + "/minifigs/?page_size=1000")
+        val arr = o.getJSONArray("results")
+        return (0 until arr.length()).sumOf { arr.getJSONObject(it).optInt("quantity", 1) }
+    }
+
+    /** All themes by id. */
+    suspend fun themes(key: String): Map<Int, Theme> {
+        val out = HashMap<Int, Theme>()
         var page = 1
         while (true) {
             val o = get(key, "lego/themes/?page=$page&page_size=1000")
             val arr = o.getJSONArray("results")
             for (i in 0 until arr.length()) {
                 val t = arr.getJSONObject(i)
-                out[t.getInt("id")] = t.getString("name")
+                val id = t.getInt("id")
+                out[id] = Theme(id, t.getString("name"), if (t.isNull("parent_id")) null else t.getInt("parent_id"))
             }
             if (o.isNull("next")) return out
             page++

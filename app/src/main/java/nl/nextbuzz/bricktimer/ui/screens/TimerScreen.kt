@@ -165,12 +165,13 @@ fun TimerScreen(
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatTile("Vandaag", if (todaySec > 0) Fmt.dur(todaySec) else "0m", Modifier.weight(1f), valueSize = 22.sp)
-                StatTile("Sessies", today.size.toString(), Modifier.weight(1f), valueSize = 22.sp)
+                StatTile("Sessies vandaag", today.size.toString(), Modifier.weight(1f), valueSize = 22.sp)
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatTile("Totaal deze set", if (cur.totalSec > 0) Fmt.dur(cur.totalSec) else "0m", Modifier.weight(1f), valueSize = 22.sp)
-                StatTile("Sec / steen", if (cur.totalSec > 0) Fmt.spb(cur.totalSec, cur.set.numParts) else "—", Modifier.weight(1f), valueSize = 22.sp)
+                // Sec / steen only appears once the set is finished; the current build is by definition not.
+                StatTile("Sessies totaal", cur.sessions.size.toString(), Modifier.weight(1f), valueSize = 22.sp)
             }
         }
     }

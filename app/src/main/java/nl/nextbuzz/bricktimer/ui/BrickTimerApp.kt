@@ -85,6 +85,8 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
     val data by vm.data.collectAsStateWithLifecycle()
     val catalog by vm.catalog.collectAsStateWithLifecycle()
     val summary by vm.summary.collectAsStateWithLifecycle()
+    val themeOptions by vm.themeOptions.collectAsStateWithLifecycle()
+    val minifigs by vm.minifigs.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { vm.messages.collect { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() } }
@@ -114,7 +116,11 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
                                 data = data,
                                 state = catalog,
                                 hasKey = vm.effectiveKey.isNotBlank(),
+                                themeOptions = themeOptions,
                                 onQuery = vm::onQuery,
+                                onTheme = vm::setThemeFilter,
+                                onParts = vm::setPartsFilter,
+                                onOpenThemes = vm::ensureThemeOptions,
                                 onLoadMore = vm::loadMore,
                                 onRetry = vm::reloadCatalog,
                                 onOpen = vm::openSet,
@@ -130,16 +136,20 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
                         )
                         Screen.Achievements -> AchievementsScreen(data)
                         Screen.History -> HistoryScreen(data, onBack = { vm.back() }, onOpen = vm::openSet)
-                        is Screen.Detail -> DetailScreen(
-                            data = data,
-                            set = s.set,
-                            onBack = { vm.back() },
-                            onAdd = { vm.addToPortfolio(s.set) },
-                            onSetCurrent = { vm.setCurrent(s.set.setNum) },
-                            onMarkDone = { vm.markDone(s.set.setNum) },
-                            onRemove = { vm.removeFromPortfolio(s.set.setNum); vm.back() },
-                            onDeleteSession = { id -> vm.deleteSession(s.set.setNum, id) },
-                        )
+                        is Screen.Detail -> {
+                            LaunchedEffect(s.set.setNum) { vm.ensureMinifigs(s.set) }
+                            DetailScreen(
+                                data = data,
+                                set = s.set,
+                                minifigs = data.entry(s.set.setNum)?.set?.numMinifigs ?: minifigs[s.set.setNum],
+                                onBack = { vm.back() },
+                                onAdd = { vm.addToPortfolio(s.set) },
+                                onSetCurrent = { vm.setCurrent(s.set.setNum) },
+                                onMarkDone = { vm.markDone(s.set.setNum) },
+                                onRemove = { vm.removeFromPortfolio(s.set.setNum); vm.back() },
+                                onDeleteSession = { id -> vm.deleteSession(s.set.setNum, id) },
+                            )
+                        }
                     }
                 }
             }
@@ -211,7 +221,7 @@ private fun SummaryOverlay(sum: Summary, onClose: () -> Unit) {
                     T(sum.big, 40.sp, Modifier.padding(top = 2.dp), weight = FontWeight.Bold, letterSpacing = (-0.02).em)
                 }
                 Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SummaryStat(sum.spb, "sec/steen", Modifier.weight(1f))
+                    SummaryStat(sum.stat, sum.statLabel, Modifier.weight(1f))
                     SummaryStat(sum.date, sum.dateLabel, Modifier.weight(1f))
                 }
                 sum.badges.forEach { b ->
