@@ -50,6 +50,7 @@ import nl.nextbuzz.bricktimer.logic.ChallengeKind
 import nl.nextbuzz.bricktimer.logic.achievements
 import nl.nextbuzz.bricktimer.logic.challenges
 import nl.nextbuzz.bricktimer.ui.Overline
+import nl.nextbuzz.bricktimer.ui.ProgressBar
 import nl.nextbuzz.bricktimer.ui.ScreenTitle
 import nl.nextbuzz.bricktimer.ui.T
 import nl.nextbuzz.bricktimer.ui.card
@@ -147,12 +148,7 @@ private fun ChallengeCard(ch: Challenge) {
             T(ch.title ?: ch.kind.fmt(ch.value), 13.sp, Modifier.weight(1f), weight = FontWeight.SemiBold, maxLines = 1)
             T(ch.nextLabel, 12.sp, color = c.textSubtle, maxLines = 1)
         }
-        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(c.track)) {
-            Box(
-                Modifier.fillMaxWidth(ch.progress.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(4.dp))
-                    .background(if (ch.maxed) Brand.gradient else Brush.linearGradient(listOf(gold, gold))),
-            )
-        }
+        ProgressBar(ch.progress, brush = if (ch.maxed) Brand.gradient else Brush.linearGradient(listOf(gold, gold)))
         FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             ch.kind.tiers.forEach { t -> Milestone("${ch.kind.fmt(t.threshold)} · ${t.title}", ch.value >= t.threshold) }
         }
@@ -203,12 +199,7 @@ private fun AchievementCard(a: Achievement) {
             T("${a.count}× behaald", 13.sp, Modifier.weight(1f), weight = FontWeight.SemiBold)
             T(a.nextLabel, 12.sp, color = c.textSubtle)
         }
-        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(c.track)) {
-            Box(
-                Modifier.fillMaxWidth(a.progress.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(4.dp))
-                    .background(if (a.platinum) Brand.gradient else Brush.linearGradient(listOf(gold, gold))),
-            )
-        }
+        ProgressBar(a.progress, brush = if (a.platinum) Brand.gradient else Brush.linearGradient(listOf(gold, gold)))
         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Milestone("25", a.count >= 25)
             Milestone("50", a.count >= 50)

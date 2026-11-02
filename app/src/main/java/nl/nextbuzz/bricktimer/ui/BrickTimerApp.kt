@@ -1,7 +1,11 @@
 package nl.nextbuzz.bricktimer.ui
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -25,15 +29,21 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -41,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +62,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,7 +71,9 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import nl.nextbuzz.bricktimer.data.DEFAULT_OPENROUTER_MODEL
 import nl.nextbuzz.bricktimer.data.ThemeMode
+import nl.nextbuzz.bricktimer.util.ImageUtils
 import nl.nextbuzz.bricktimer.ui.screens.AchievementsScreen
 import nl.nextbuzz.bricktimer.ui.screens.CatalogScreen
 import nl.nextbuzz.bricktimer.ui.screens.DetailScreen
@@ -87,6 +102,7 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
     val summary by vm.summary.collectAsStateWithLifecycle()
     val themeOptions by vm.themeOptions.collectAsStateWithLifecycle()
     val minifigs by vm.minifigs.collectAsStateWithLifecycle()
+    val estimate by vm.estimate.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { vm.messages.collect { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() } }
@@ -156,16 +172,29 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
             BottomNav(activeRoot) { vm.goTab(it) }
         }
 
-        summary?.let { SummaryOverlay(it, vm::closeSummary) }
+        summary?.let {
+            SummaryOverlay(
+                sum = it,
+                estimate = estimate,
+                hasOpenRouterKey = data.openRouterKey.isNotBlank(),
+                onPhoto = vm::estimateProgress,
+                onRetry = vm::resetEstimate,
+                onSettings = { showSettings = true },
+                onClose = vm::closeSummary,
+            )
+        }
     }
 
     if (showSettings) {
         SettingsDialog(
             apiKey = data.apiKey,
+            openRouterKey = data.openRouterKey,
+            openRouterModel = data.openRouterModel,
             themeMode = data.themeMode,
-            onSave = { key, mode ->
+            onSave = { key, orKey, orModel, mode ->
                 showSettings = false
                 vm.setThemeMode(mode)
+                vm.setOpenRouter(orKey, orModel)
                 if (key != data.apiKey) vm.setApiKey(key)
             },
             onDismiss = { showSettings = false },
@@ -195,7 +224,15 @@ private fun BottomNav(active: Screen, onSelect: (Screen) -> Unit) {
 }
 
 @Composable
-private fun SummaryOverlay(sum: Summary, onClose: () -> Unit) {
+private fun SummaryOverlay(
+    sum: Summary,
+    estimate: EstimateState,
+    hasOpenRouterKey: Boolean,
+    onPhoto: (Uri) -> Unit,
+    onRetry: () -> Unit,
+    onSettings: () -> Unit,
+    onClose: () -> Unit,
+) {
     val c = LocalAppColors.current
     Box(
         Modifier.fillMaxSize().background(Color(0x8C15101E))
@@ -237,7 +274,78 @@ private fun SummaryOverlay(sum: Summary, onClose: () -> Unit) {
                         }
                     }
                 }
+                if (sum.canEstimate) EstimateSection(estimate, hasOpenRouterKey, onPhoto, onRetry, onSettings)
                 GradientButton("Klaar", onClose, Modifier.fillMaxWidth().padding(top = 6.dp), radius = 10.dp, vertical = 14.dp)
+            }
+        }
+    }
+}
+
+/** Optional photo of the build in progress, which an AI model compares to the finished set. */
+@Composable
+private fun EstimateSection(
+    estimate: EstimateState,
+    hasKey: Boolean,
+    onPhoto: (Uri) -> Unit,
+    onRetry: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    val c = LocalAppColors.current
+    val ctx = LocalContext.current
+    var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val uri = cameraUri
+        if (ok && uri != null) onPhoto(uri)
+    }
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) onPhoto(uri) }
+
+    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+        when (estimate) {
+            EstimateState.Idle -> if (!hasKey) {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.sunken).clickable(onClick = onSettings).padding(13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(11.dp),
+                ) {
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = c.textSubtle, modifier = Modifier.size(22.dp))
+                    T("Voeg een OpenRouter API-sleutel toe in Instellingen om met een foto je voortgang te laten schatten.", 12.sp, color = c.textMuted, lineHeight = 17.sp)
+                }
+            } else {
+                Overline("Hoe ver ben je?", Modifier.padding(bottom = 8.dp), size = 11.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlineButton(
+                        "Foto maken",
+                        {
+                            val uri = ImageUtils.newCameraUri(ctx)
+                            cameraUri = uri
+                            camera.launch(uri)
+                        },
+                        Modifier.weight(1f),
+                        icon = Icons.Rounded.PhotoCamera,
+                    )
+                    OutlineButton(
+                        "Uit galerij",
+                        { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        Modifier.weight(1f),
+                        icon = Icons.Rounded.PhotoLibrary,
+                    )
+                }
+            }
+            EstimateState.Loading -> Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.sunken).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CircularProgressIndicator(color = c.accent, strokeWidth = 3.dp, modifier = Modifier.size(22.dp))
+                T("AI analyseert je build…", 13.sp, weight = FontWeight.SemiBold, color = c.textMuted)
+            }
+            is EstimateState.Result -> BuildProgressCard(estimate.pct, estimate.note, estimate.confidence.label)
+            is EstimateState.Error -> Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.sunken).padding(13.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                T(estimate.message, 12.5.sp, color = Brand.Danger, lineHeight = 17.sp)
+                OutlineButton("Opnieuw", onRetry)
             }
         }
     }
@@ -253,30 +361,35 @@ private fun SummaryStat(value: String, label: String, modifier: Modifier) {
 }
 
 @Composable
-private fun SettingsDialog(apiKey: String, themeMode: ThemeMode, onSave: (String, ThemeMode) -> Unit, onDismiss: () -> Unit) {
+private fun SettingsDialog(
+    apiKey: String,
+    openRouterKey: String,
+    openRouterModel: String,
+    themeMode: ThemeMode,
+    onSave: (key: String, openRouterKey: String, openRouterModel: String, mode: ThemeMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val c = LocalAppColors.current
     var key by remember { mutableStateOf(apiKey) }
+    var orKey by remember { mutableStateOf(openRouterKey) }
+    var orModel by remember { mutableStateOf(openRouterModel) }
     var mode by remember { mutableStateOf(themeMode) }
     Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).padding(22.dp)) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).verticalScroll(rememberScrollState()).padding(22.dp)) {
             T("Instellingen", 20.sp, weight = FontWeight.Bold)
             Overline("Rebrickable API-sleutel", Modifier.padding(top = 18.dp, bottom = 8.dp))
-            Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.sunken)
-                    .border(2.dp, c.border, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
-            ) {
-                if (key.isEmpty()) T("Plak hier je API key", 14.sp, color = c.textSubtle)
-                BasicTextField(
-                    value = key,
-                    onValueChange = { key = it },
-                    singleLine = true,
-                    textStyle = TextStyle(fontFamily = Outfit, fontSize = 14.sp, color = c.text),
-                    cursorBrush = SolidColor(c.accent),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            SettingsField(key, { key = it }, "Plak hier je API key")
             T(
                 "Gratis aan te maken op rebrickable.com onder Account → Settings → API. Laat leeg om de sleutel uit de build te gebruiken.",
+                12.sp, Modifier.padding(top = 6.dp), color = c.textMuted, lineHeight = 17.sp,
+            )
+
+            Overline("OpenRouter API-sleutel (optioneel)", Modifier.padding(top = 18.dp, bottom = 8.dp))
+            SettingsField(orKey, { orKey = it }, "sk-or-…", secret = true)
+            Overline("AI-model", Modifier.padding(top = 12.dp, bottom = 8.dp))
+            SettingsField(orModel, { orModel = it }, DEFAULT_OPENROUTER_MODEL)
+            T(
+                "Hiermee schat een AI-model na een sessie aan de hand van een foto hoe ver je bent. Maak een sleutel aan op openrouter.ai/keys; het model moet afbeeldingen ondersteunen.",
                 12.sp, Modifier.padding(top = 6.dp), color = c.textMuted, lineHeight = 17.sp,
             )
 
@@ -295,8 +408,28 @@ private fun SettingsDialog(apiKey: String, themeMode: ThemeMode, onSave: (String
 
             Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 T("Annuleren", 14.sp, Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onDismiss).padding(12.dp), weight = FontWeight.SemiBold, color = c.textMuted)
-                GradientButton("Opslaan", { onSave(key.trim(), mode) }, fontSize = 14.sp, vertical = 11.dp, horizontal = 18.dp)
+                GradientButton("Opslaan", { onSave(key.trim(), orKey.trim(), orModel.trim(), mode) }, fontSize = 14.sp, vertical = 11.dp, horizontal = 18.dp)
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsField(value: String, onChange: (String) -> Unit, placeholder: String, secret: Boolean = false) {
+    val c = LocalAppColors.current
+    Box(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.sunken)
+            .border(2.dp, c.border, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        if (value.isEmpty()) T(placeholder, 14.sp, color = c.textSubtle)
+        BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            textStyle = TextStyle(fontFamily = Outfit, fontSize = 14.sp, color = c.text),
+            cursorBrush = SolidColor(c.accent),
+            visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

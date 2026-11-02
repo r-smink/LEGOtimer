@@ -58,6 +58,7 @@ import nl.nextbuzz.bricktimer.ui.IconCircle
 import nl.nextbuzz.bricktimer.ui.LogoTile
 import nl.nextbuzz.bricktimer.ui.Wordmark
 import nl.nextbuzz.bricktimer.ui.Overline
+import nl.nextbuzz.bricktimer.ui.ProgressBar
 import nl.nextbuzz.bricktimer.ui.SetThumb
 import nl.nextbuzz.bricktimer.ui.StatTile
 import nl.nextbuzz.bricktimer.ui.T
@@ -157,6 +158,17 @@ fun TimerScreen(
                     T("${Fmt.pieces(cur.set.numParts)} stukjes · ${cur.set.themeName.ifBlank { cur.set.displayNumber }}", 12.5.sp, color = c.textMuted, maxLines = 1)
                 }
                 Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = c.textSubtle)
+            }
+
+            cur.latestProgress?.progressPct?.let { pct ->
+                Spacer(Modifier.height(12.dp))
+                Column(Modifier.fillMaxWidth().card(14.dp).padding(14.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+                        Overline("Voortgang (AI-schatting)", Modifier.weight(1f), size = 11.sp)
+                        T("~$pct%", 15.sp, weight = FontWeight.Bold)
+                    }
+                    ProgressBar(pct / 100f)
+                }
             }
 
             val todayStart = Fmt.startOfToday()

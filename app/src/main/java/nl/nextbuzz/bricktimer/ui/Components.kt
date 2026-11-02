@@ -1,5 +1,7 @@
 package nl.nextbuzz.bricktimer.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -254,5 +257,40 @@ fun Chip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifi
     ) {
         T(label, 13.sp, weight = FontWeight.SemiBold, color = if (selected) c.accent else c.textMuted, maxLines = 1)
         if (icon != null) Icon(icon, null, tint = if (selected) c.accent else c.textSubtle, modifier = Modifier.size(16.dp))
+    }
+}
+
+/** Horizontal progress bar on the theme track; [progress] runs from 0 to 1. */
+@Composable
+fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 8.dp, brush: Brush = Brand.gradient, track: Color = LocalAppColors.current.track) {
+    val shape = RoundedCornerShape(height / 2)
+    Box(modifier.fillMaxWidth().height(height).clip(shape).background(track)) {
+        Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().clip(shape).background(brush))
+    }
+}
+
+/** AI estimate of how far a build is: big percentage, animated bar and the model's explanation. */
+@Composable
+fun BuildProgressCard(pct: Int, note: String, confidence: String?, modifier: Modifier = Modifier) {
+    val c = LocalAppColors.current
+    var target by remember { mutableStateOf(0f) }
+    LaunchedEffect(pct) { target = pct / 100f }
+    val animated by animateFloatAsState(target, tween(900), label = "progress")
+    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.sunken).padding(14.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Overline("Geschatte voortgang", size = 11.sp)
+                T("${(animated * 100).toInt()}%", 30.sp, weight = FontWeight.Bold, letterSpacing = (-0.02).em)
+            }
+            if (confidence != null) {
+                T(
+                    confidence, 11.sp,
+                    Modifier.padding(bottom = 6.dp).clip(RoundedCornerShape(12.dp)).background(c.tint).padding(horizontal = 9.dp, vertical = 3.dp),
+                    weight = FontWeight.SemiBold, color = c.accent, maxLines = 1,
+                )
+            }
+        }
+        ProgressBar(animated, Modifier.padding(top = 6.dp), height = 12.dp)
+        if (note.isNotBlank()) T(note, 12.5.sp, Modifier.padding(top = 10.dp), color = c.textMuted, lineHeight = 18.sp)
     }
 }
