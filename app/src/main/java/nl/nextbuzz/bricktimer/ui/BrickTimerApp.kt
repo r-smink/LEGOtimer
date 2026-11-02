@@ -135,7 +135,7 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
                             onBrowse = { vm.goTab(Screen.Catalog) },
                         )
                         Screen.Achievements -> AchievementsScreen(data)
-                        Screen.History -> HistoryScreen(data, onBack = { vm.back() }, onOpen = vm::openSet)
+                        Screen.History -> HistoryScreen(data, onBack = { vm.back() }, onOpen = vm::openSet, onDeleteSession = vm::deleteSession)
                         is Screen.Detail -> {
                             LaunchedEffect(s.set.setNum) { vm.ensureMinifigs(s.set) }
                             DetailScreen(
