@@ -1,6 +1,7 @@
 package nl.nextbuzz.bricktimer.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,8 +19,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nl.nextbuzz.bricktimer.BuildConfig
 import nl.nextbuzz.bricktimer.data.AppData
+import nl.nextbuzz.bricktimer.data.BuildContext
 import nl.nextbuzz.bricktimer.data.BuildStatus
+import nl.nextbuzz.bricktimer.data.DEFAULT_OPENROUTER_MODEL
+import nl.nextbuzz.bricktimer.data.Confidence
 import nl.nextbuzz.bricktimer.data.LegoSet
+import nl.nextbuzz.bricktimer.data.OpenRouterApi
 import nl.nextbuzz.bricktimer.data.PortfolioEntry
 import nl.nextbuzz.bricktimer.data.RebrickableApi
 import nl.nextbuzz.bricktimer.data.Repository
@@ -33,6 +38,7 @@ import nl.nextbuzz.bricktimer.logic.isEveningHour
 import nl.nextbuzz.bricktimer.logic.isMorningHour
 import nl.nextbuzz.bricktimer.logic.isSpeedBrick
 import nl.nextbuzz.bricktimer.logic.newTitles
+import nl.nextbuzz.bricktimer.util.ImageUtils
 
 sealed interface Screen {
     data object Timer : Screen
@@ -80,7 +86,20 @@ data class Summary(
     val date: String,
     val dateLabel: String,
     val badges: List<Badge>,
-)
+    val setNum: String,
+    /** The session a photo estimate is stored on; null when the summary offers no estimate. */
+    val sessionId: Long? = null,
+) {
+    val canEstimate: Boolean get() = sessionId != null
+}
+
+/** Progress of the optional AI photo estimate shown in the session summary. */
+sealed interface EstimateState {
+    data object Idle : EstimateState
+    data object Loading : EstimateState
+    data class Result(val pct: Int, val note: String, val confidence: Confidence) : EstimateState
+    data class Error(val message: String) : EstimateState
+}
 
 private val SET_NUMBER = Regex("""\d{3,7}(-\d+)?""")
 
@@ -88,6 +107,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = Repository.get(app)
     private val store = repo.store
     private val api = RebrickableApi()
+    private val openRouter = OpenRouterApi()
 
     /** Shared with the home screen widget, so timer changes there show up here live. */
     val data: StateFlow<AppData> = repo.data
@@ -97,6 +117,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _summary = MutableStateFlow<Summary?>(null)
     val summary: StateFlow<Summary?> = _summary.asStateFlow()
+
+    private val _estimate = MutableStateFlow<EstimateState>(EstimateState.Idle)
+    val estimate: StateFlow<EstimateState> = _estimate.asStateFlow()
+    private var estimateJob: Job? = null
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages = _messages.asSharedFlow()
@@ -166,6 +190,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setThemeMode(mode: ThemeMode) = update { it.copy(themeMode = mode) }
+
+    fun setOpenRouter(key: String, model: String) =
+        update { it.copy(openRouterKey = key.trim(), openRouterModel = model.trim().ifBlank { DEFAULT_OPENROUTER_MODEL }) }
 
     // ---------------------------------------------------------------- catalog
 
@@ -359,6 +386,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             date = "${e.sessions.size}",
             dateLabel = if (e.sessions.size == 1) "sessie" else "sessies · sinds ${Fmt.dateShort(first)}",
             badges = badges,
+            setNum = setNum,
         )
     }
 
@@ -400,6 +428,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             date = Fmt.dateShort(session.startMs),
             dateLabel = Fmt.range(session.startMs, session.durSec),
             badges = badges,
+            setNum = entry.set.setNum,
+            // Comparing needs the picture of the finished set.
+            sessionId = if (entry.set.imgUrl != null) session.id else null,
         )
     }
 
@@ -413,6 +444,44 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         newTitles(before, repo.value).map { ch -> Badge("Nieuwe titel: ${ch.title}", "Nieuwe ster! ${ch.kind.title} · ${ch.kind.fmt(ch.value)}") }
 
     fun closeSummary() {
+        estimateJob?.cancel()
+        _estimate.value = EstimateState.Idle
         _summary.value = null
+    }
+
+    // ---------------------------------------------------------------- AI progress estimate
+
+    /** Sends the photo at [uri] with the set image to the OpenRouter model and stores the estimate on the summary's session. */
+    fun estimateProgress(uri: Uri) {
+        val sum = _summary.value ?: return
+        val sessionId = sum.sessionId ?: return
+        val d = repo.value
+        val entry = d.entry(sum.setNum) ?: return
+        if (d.openRouterKey.isBlank()) {
+            _estimate.value = EstimateState.Error("Stel eerst een OpenRouter API-sleutel in bij Instellingen.")
+            return
+        }
+        estimateJob?.cancel()
+        _estimate.value = EstimateState.Loading
+        estimateJob = viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            try {
+                val photo = ImageUtils.encodeForUpload(ctx, uri)
+                val build = BuildContext(entry.set, entry.totalSec, entry.sessions.size)
+                val res = openRouter.estimate(d.openRouterKey, d.openRouterModel, build, photo)
+                repo.setSessionProgress(sum.setNum, sessionId, res.percent, res.note.ifBlank { null })
+                _estimate.value = EstimateState.Result(res.percent, res.note, res.confidence)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _estimate.value = EstimateState.Error(e.message ?: "Er ging iets mis.")
+            } finally {
+                ImageUtils.clearCameraCache(ctx)
+            }
+        }
+    }
+
+    fun resetEstimate() {
+        _estimate.value = EstimateState.Idle
     }
 }

@@ -76,7 +76,12 @@ private fun appDataToJson(d: AppData): JSONObject {
     val portfolio = JSONArray()
     d.portfolio.forEach { e ->
         val sessions = JSONArray()
-        e.sessions.forEach { s -> sessions.put(JSONObject().put("id", s.id).put("start", s.startMs).put("dur", s.durSec)) }
+        e.sessions.forEach { s ->
+            sessions.put(
+                JSONObject().put("id", s.id).put("start", s.startMs).put("dur", s.durSec)
+                    .put("progress", s.progressPct ?: JSONObject.NULL).put("progressNote", s.progressNote ?: JSONObject.NULL)
+            )
+        }
         portfolio.put(
             JSONObject()
                 .put("set", legoSetToJson(e.set))
@@ -90,6 +95,8 @@ private fun appDataToJson(d: AppData): JSONObject {
         .put("portfolio", portfolio)
         .put("timer", JSONObject().put("running", d.timer.running).put("start", d.timer.startMs))
         .put("apiKey", d.apiKey)
+        .put("openRouterKey", d.openRouterKey)
+        .put("openRouterModel", d.openRouterModel)
         .put("themeMode", d.themeMode.name)
 }
 
@@ -105,7 +112,11 @@ private fun appDataFromJson(o: JSONObject): AppData {
             completedMs = if (e.isNull("completed")) null else e.optLong("completed"),
             sessions = (0 until ss.length()).map { j ->
                 val s = ss.getJSONObject(j)
-                Session(s.getLong("id"), s.getLong("start"), s.getLong("dur"))
+                Session(
+                    s.getLong("id"), s.getLong("start"), s.getLong("dur"),
+                    progressPct = if (s.has("progress") && !s.isNull("progress")) s.optInt("progress") else null,
+                    progressNote = if (s.has("progressNote")) s.optStringOrNull("progressNote") else null,
+                )
             },
         )
     }
@@ -114,6 +125,8 @@ private fun appDataFromJson(o: JSONObject): AppData {
         portfolio = portfolio,
         timer = TimerState(t?.optBoolean("running") ?: false, t?.optLong("start") ?: 0L),
         apiKey = o.optString("apiKey", ""),
+        openRouterKey = o.optString("openRouterKey", ""),
+        openRouterModel = o.optString("openRouterModel", "").ifBlank { DEFAULT_OPENROUTER_MODEL },
         themeMode = runCatching { ThemeMode.valueOf(o.getString("themeMode")) }.getOrDefault(ThemeMode.DARK),
     )
 }

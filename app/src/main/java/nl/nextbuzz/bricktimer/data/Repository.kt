@@ -62,6 +62,14 @@ class Repository private constructor(private val app: Context) {
         return cur to session
     }
 
+    /** Stores an AI progress estimate on one session. */
+    fun setSessionProgress(setNum: String, sessionId: Long, pct: Int, note: String?) = update {
+        it.copy(portfolio = it.portfolio.map { e ->
+            if (e.set.setNum != setNum) e
+            else e.copy(sessions = e.sessions.map { s -> if (s.id == sessionId) s.copy(progressPct = pct, progressNote = note) else s })
+        })
+    }
+
     companion object {
         @Volatile private var instance: Repository? = null
 

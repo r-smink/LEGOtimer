@@ -22,7 +22,14 @@ data class Theme(val id: Int, val name: String, val parentId: Int?)
 
 enum class BuildStatus { PLANNED, CURRENT, DONE }
 
-data class Session(val id: Long, val startMs: Long, val durSec: Long)
+data class Session(
+    val id: Long,
+    val startMs: Long,
+    val durSec: Long,
+    /** AI estimate of how far the build was after this session (0..100), from a photo. */
+    val progressPct: Int? = null,
+    val progressNote: String? = null,
+)
 
 data class PortfolioEntry(
     val set: LegoSet,
@@ -32,9 +39,14 @@ data class PortfolioEntry(
     val sessions: List<Session> = emptyList(),
 ) {
     val totalSec: Long get() = sessions.sumOf { it.durSec }
+
+    /** Most recent session with an AI progress estimate. */
+    val latestProgress: Session? get() = sessions.lastOrNull { it.progressPct != null }
 }
 
 data class TimerState(val running: Boolean = false, val startMs: Long = 0L)
+
+const val DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash"
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -42,6 +54,8 @@ data class AppData(
     val portfolio: List<PortfolioEntry> = emptyList(),
     val timer: TimerState = TimerState(),
     val apiKey: String = "",
+    val openRouterKey: String = "",
+    val openRouterModel: String = DEFAULT_OPENROUTER_MODEL,
     val themeMode: ThemeMode = ThemeMode.DARK,
 ) {
     val current: PortfolioEntry? get() = portfolio.firstOrNull { it.status == BuildStatus.CURRENT }
