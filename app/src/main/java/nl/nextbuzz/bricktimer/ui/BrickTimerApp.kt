@@ -1,11 +1,7 @@
 package nl.nextbuzz.bricktimer.ui
 
-import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -29,21 +25,19 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.PhotoCamera
-import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -51,7 +45,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,9 +64,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import nl.nextbuzz.bricktimer.data.DEFAULT_OPENROUTER_MODEL
 import nl.nextbuzz.bricktimer.data.ThemeMode
-import nl.nextbuzz.bricktimer.util.ImageUtils
 import nl.nextbuzz.bricktimer.ui.screens.AchievementsScreen
 import nl.nextbuzz.bricktimer.ui.screens.CatalogScreen
 import nl.nextbuzz.bricktimer.ui.screens.DetailScreen
@@ -103,7 +94,13 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
     val themeOptions by vm.themeOptions.collectAsStateWithLifecycle()
     val minifigs by vm.minifigs.collectAsStateWithLifecycle()
     val estimate by vm.estimate.collectAsStateWithLifecycle()
+    val photos by vm.photos.collectAsStateWithLifecycle()
+    val estimateTarget by vm.estimateTarget.collectAsStateWithLifecycle()
+    val models by vm.models.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
+    val estimateActions = remember(vm) {
+        EstimateActions(vm::addPhotos, vm::removePhoto, vm::estimateProgress, vm::resetEstimate) { showSettings = true }
+    }
 
     LaunchedEffect(Unit) { vm.messages.collect { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() } }
     BackHandler { if (!vm.back()) onExit() }
@@ -151,7 +148,7 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
                             onBrowse = { vm.goTab(Screen.Catalog) },
                         )
                         Screen.Achievements -> AchievementsScreen(data)
-                        Screen.History -> HistoryScreen(data, onBack = { vm.back() }, onOpen = vm::openSet, onDeleteSession = vm::deleteSession)
+                        Screen.History -> HistoryScreen(data, onBack = { vm.back() }, onOpen = vm::openSet, onDeleteSession = vm::deleteSession, onEstimate = vm::openEstimate)
                         is Screen.Detail -> {
                             LaunchedEffect(s.set.setNum) { vm.ensureMinifigs(s.set) }
                             DetailScreen(
@@ -173,16 +170,17 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
         }
 
         summary?.let {
-            SummaryOverlay(
-                sum = it,
-                estimate = estimate,
-                hasOpenRouterKey = data.openRouterKey.isNotBlank(),
-                onPhoto = vm::estimateProgress,
-                onRetry = vm::resetEstimate,
-                onSettings = { showSettings = true },
-                onClose = vm::closeSummary,
-            )
+            SummaryOverlay(it, onClose = vm::closeSummary) {
+                EstimateSection(estimate, photos, data.openRouterKey.isNotBlank(), estimateActions)
+            }
         }
+    }
+
+    estimateTarget?.let { t ->
+        val entry = data.entry(t.setNum)
+        val session = entry?.sessions?.firstOrNull { it.id == t.sessionId }
+        if (entry == null || session == null) return@let
+        EstimateDialog(entry, session, estimate, photos, data.openRouterKey.isNotBlank(), estimateActions, onDismiss = vm::closeEstimate)
     }
 
     if (showSettings) {
@@ -190,6 +188,8 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
             apiKey = data.apiKey,
             openRouterKey = data.openRouterKey,
             openRouterModel = data.openRouterModel,
+            models = models,
+            onLoadModels = vm::loadVisionModels,
             themeMode = data.themeMode,
             onSave = { key, orKey, orModel, mode ->
                 showSettings = false
@@ -224,23 +224,17 @@ private fun BottomNav(active: Screen, onSelect: (Screen) -> Unit) {
 }
 
 @Composable
-private fun SummaryOverlay(
-    sum: Summary,
-    estimate: EstimateState,
-    hasOpenRouterKey: Boolean,
-    onPhoto: (Uri) -> Unit,
-    onRetry: () -> Unit,
-    onSettings: () -> Unit,
-    onClose: () -> Unit,
-) {
+private fun SummaryOverlay(sum: Summary, onClose: () -> Unit, estimateSection: @Composable () -> Unit) {
     val c = LocalAppColors.current
     Box(
         Modifier.fillMaxSize().background(Color(0x8C15101E))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-            .padding(26.dp),
+            .systemBarsPadding()
+            .padding(horizontal = 26.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Column(Modifier.fillMaxWidth().shadow(30.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp)).background(c.card)) {
+        // Badges and photos can make the card taller than the screen, so it scrolls.
+        Column(Modifier.fillMaxWidth().shadow(30.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp)).background(c.card).verticalScroll(rememberScrollState())) {
             Box(Modifier.fillMaxWidth().background(Brand.gradient).padding(horizontal = 22.dp, vertical = 24.dp)) {
                 Box(Modifier.matchParentSize()) { Box(Modifier.align(Alignment.TopEnd).offset(42.dp, (-44).dp).size(100.dp).clip(CircleShape).background(Color.White.copy(alpha = .12f))) }
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -274,78 +268,8 @@ private fun SummaryOverlay(
                         }
                     }
                 }
-                if (sum.canEstimate) EstimateSection(estimate, hasOpenRouterKey, onPhoto, onRetry, onSettings)
+                if (sum.canEstimate) estimateSection()
                 GradientButton("Klaar", onClose, Modifier.fillMaxWidth().padding(top = 6.dp), radius = 10.dp, vertical = 14.dp)
-            }
-        }
-    }
-}
-
-/** Optional photo of the build in progress, which an AI model compares to the finished set. */
-@Composable
-private fun EstimateSection(
-    estimate: EstimateState,
-    hasKey: Boolean,
-    onPhoto: (Uri) -> Unit,
-    onRetry: () -> Unit,
-    onSettings: () -> Unit,
-) {
-    val c = LocalAppColors.current
-    val ctx = LocalContext.current
-    var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        val uri = cameraUri
-        if (ok && uri != null) onPhoto(uri)
-    }
-    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) onPhoto(uri) }
-
-    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
-        when (estimate) {
-            EstimateState.Idle -> if (!hasKey) {
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.sunken).clickable(onClick = onSettings).padding(13.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(11.dp),
-                ) {
-                    Icon(Icons.Rounded.AutoAwesome, null, tint = c.textSubtle, modifier = Modifier.size(22.dp))
-                    T("Voeg een OpenRouter API-sleutel toe in Instellingen om met een foto je voortgang te laten schatten.", 12.sp, color = c.textMuted, lineHeight = 17.sp)
-                }
-            } else {
-                Overline("Hoe ver ben je?", Modifier.padding(bottom = 8.dp), size = 11.sp)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlineButton(
-                        "Foto maken",
-                        {
-                            val uri = ImageUtils.newCameraUri(ctx)
-                            cameraUri = uri
-                            camera.launch(uri)
-                        },
-                        Modifier.weight(1f),
-                        icon = Icons.Rounded.PhotoCamera,
-                    )
-                    OutlineButton(
-                        "Uit galerij",
-                        { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                        Modifier.weight(1f),
-                        icon = Icons.Rounded.PhotoLibrary,
-                    )
-                }
-            }
-            EstimateState.Loading -> Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.sunken).padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                CircularProgressIndicator(color = c.accent, strokeWidth = 3.dp, modifier = Modifier.size(22.dp))
-                T("AI analyseert je build…", 13.sp, weight = FontWeight.SemiBold, color = c.textMuted)
-            }
-            is EstimateState.Result -> BuildProgressCard(estimate.pct, estimate.note, estimate.confidence.label)
-            is EstimateState.Error -> Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.sunken).padding(13.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                T(estimate.message, 12.5.sp, color = Brand.Danger, lineHeight = 17.sp)
-                OutlineButton("Opnieuw", onRetry)
             }
         }
     }
@@ -365,6 +289,8 @@ private fun SettingsDialog(
     apiKey: String,
     openRouterKey: String,
     openRouterModel: String,
+    models: ModelsState,
+    onLoadModels: () -> Unit,
     themeMode: ThemeMode,
     onSave: (key: String, openRouterKey: String, openRouterModel: String, mode: ThemeMode) -> Unit,
     onDismiss: () -> Unit,
@@ -374,6 +300,7 @@ private fun SettingsDialog(
     var orKey by remember { mutableStateOf(openRouterKey) }
     var orModel by remember { mutableStateOf(openRouterModel) }
     var mode by remember { mutableStateOf(themeMode) }
+    var pickModel by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).verticalScroll(rememberScrollState()).padding(22.dp)) {
             T("Instellingen", 20.sp, weight = FontWeight.Bold)
@@ -387,9 +314,20 @@ private fun SettingsDialog(
             Overline("OpenRouter API-sleutel (optioneel)", Modifier.padding(top = 18.dp, bottom = 8.dp))
             SettingsField(orKey, { orKey = it }, "sk-or-…", secret = true)
             Overline("AI-model", Modifier.padding(top = 12.dp, bottom = 8.dp))
-            SettingsField(orModel, { orModel = it }, DEFAULT_OPENROUTER_MODEL)
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.sunken)
+                    .border(2.dp, c.border, RoundedCornerShape(10.dp)).clickable { pickModel = true }.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val name = models.models.firstOrNull { it.id == orModel }?.name
+                Column(Modifier.weight(1f)) {
+                    T(name ?: orModel, 14.sp, maxLines = 1)
+                    if (name != null) T(orModel, 11.5.sp, color = c.textSubtle, maxLines = 1)
+                }
+                Icon(Icons.Rounded.KeyboardArrowDown, null, tint = c.textSubtle)
+            }
             T(
-                "Hiermee schat een AI-model na een sessie aan de hand van een foto hoe ver je bent. Maak een sleutel aan op openrouter.ai/keys; het model moet afbeeldingen ondersteunen.",
+                "Hiermee schat een AI-model na een sessie aan de hand van foto's hoe ver je bent. Maak een sleutel aan op openrouter.ai/keys.",
                 12.sp, Modifier.padding(top = 6.dp), color = c.textMuted, lineHeight = 17.sp,
             )
 
@@ -411,6 +349,16 @@ private fun SettingsDialog(
                 GradientButton("Opslaan", { onSave(key.trim(), orKey.trim(), orModel.trim(), mode) }, fontSize = 14.sp, vertical = 11.dp, horizontal = 18.dp)
             }
         }
+    }
+
+    if (pickModel) {
+        ModelPicker(
+            state = models,
+            selected = orModel,
+            onPick = { orModel = it; pickModel = false },
+            onRetry = onLoadModels,
+            onDismiss = { pickModel = false },
+        )
     }
 }
 

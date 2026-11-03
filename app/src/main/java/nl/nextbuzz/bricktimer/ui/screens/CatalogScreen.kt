@@ -243,7 +243,7 @@ private fun ThemeRow(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String = "Zoek op naam of setnummer") {
+fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String = "Zoek op naam of setnummer") {
     val c = LocalAppColors.current
     val focus = LocalFocusManager.current
     Row(

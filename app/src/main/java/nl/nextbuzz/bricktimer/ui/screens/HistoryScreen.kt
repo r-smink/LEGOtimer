@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,7 +47,13 @@ import nl.nextbuzz.bricktimer.ui.theme.LocalAppColors
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HistoryScreen(data: AppData, onBack: () -> Unit, onOpen: (LegoSet) -> Unit, onDeleteSession: (setNum: String, sessionId: Long) -> Unit) {
+fun HistoryScreen(
+    data: AppData,
+    onBack: () -> Unit,
+    onOpen: (LegoSet) -> Unit,
+    onDeleteSession: (setNum: String, sessionId: Long) -> Unit,
+    onEstimate: (setNum: String, sessionId: Long) -> Unit,
+) {
     val c = LocalAppColors.current
     var toDelete by remember { mutableStateOf<Pair<PortfolioEntry, Session>?>(null) }
     val rows = data.portfolio.flatMap { e -> e.sessions.map { e to it } }.sortedByDescending { it.second.startMs }
@@ -93,12 +100,20 @@ fun HistoryScreen(data: AppData, onBack: () -> Unit, onOpen: (LegoSet) -> Unit, 
                 Column(horizontalAlignment = Alignment.End) {
                     T(Fmt.dur(se.durSec), 15.sp, weight = FontWeight.Bold)
                     if (e.status == BuildStatus.DONE) T("${Fmt.spb(se.durSec, set.numParts)}/steen", 11.sp, color = c.textSubtle)
+                    else if (se.progressPct != null) T("~${se.progressPct}% af", 11.sp, weight = FontWeight.SemiBold, color = c.accent)
+                }
+                // Comparing needs the picture of the finished set.
+                if (set.imgUrl != null && e.status != BuildStatus.DONE) {
+                    Box(
+                        Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.tint).clickable { onEstimate(set.setNum, se.id) },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Rounded.AddAPhoto, "Voortgang schatten met foto", tint = c.accent, modifier = Modifier.size(18.dp)) }
                 }
             }
         }
         if (rows.isNotEmpty()) {
             item {
-                T("Houd een sessie ingedrukt om hem te verwijderen.", 11.5.sp, Modifier.padding(start = 2.dp), color = c.textSubtle)
+                T("Tik op het camera-icoon om met een foto je voortgang te laten schatten. Houd een sessie ingedrukt om hem te verwijderen.", 11.5.sp, Modifier.padding(start = 2.dp), color = c.textSubtle)
             }
         }
     }
