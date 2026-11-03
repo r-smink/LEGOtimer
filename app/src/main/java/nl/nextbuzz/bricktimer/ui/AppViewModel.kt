@@ -94,13 +94,7 @@ data class Summary(
     val canEstimate: Boolean get() = sessionId != null
 }
 
-/** Progress of the optional AI photo estimate, in the session summary or for an earlier session. */
-data class EstimateTarget(val setNum: String, val sessionId: Long)
-
-const val MAX_PHOTOS = 3
-
-data class ModelsState(val models: List<AiModel> = emptyList(), val loading: Boolean = false, val error: String? = null)
-
+/** Progress of the optional AI photo estimate shown in the session summary. */
 sealed interface EstimateState {
     data object Idle : EstimateState
     data object Loading : EstimateState
@@ -128,17 +122,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _estimate = MutableStateFlow<EstimateState>(EstimateState.Idle)
     val estimate: StateFlow<EstimateState> = _estimate.asStateFlow()
     private var estimateJob: Job? = null
-
-    /** Photos picked for the next estimate, at most [MAX_PHOTOS]. */
-    private val _photos = MutableStateFlow<List<Uri>>(emptyList())
-    val photos: StateFlow<List<Uri>> = _photos.asStateFlow()
-
-    /** An earlier session to estimate, opened from the history; null while no such dialog is open. */
-    private val _estimateTarget = MutableStateFlow<EstimateTarget?>(null)
-    val estimateTarget: StateFlow<EstimateTarget?> = _estimateTarget.asStateFlow()
-
-    private val _models = MutableStateFlow(ModelsState())
-    val models: StateFlow<ModelsState> = _models.asStateFlow()
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages = _messages.asSharedFlow()
@@ -462,87 +445,44 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         newTitles(before, repo.value).map { ch -> Badge("Nieuwe titel: ${ch.title}", "Nieuwe ster! ${ch.kind.title} · ${ch.kind.fmt(ch.value)}") }
 
     fun closeSummary() {
-        clearEstimate()
+        estimateJob?.cancel()
+        _estimate.value = EstimateState.Idle
         _summary.value = null
     }
 
     // ---------------------------------------------------------------- AI progress estimate
 
-    /** Opens the estimate dialog for an earlier session, e.g. when the summary was closed too soon. */
-    fun openEstimate(setNum: String, sessionId: Long) {
-        clearEstimate()
-        _estimateTarget.value = EstimateTarget(setNum, sessionId)
-    }
-
-    fun closeEstimate() {
-        clearEstimate()
-        _estimateTarget.value = null
-    }
-
-    private fun clearEstimate() {
-        estimateJob?.cancel()
-        _estimate.value = EstimateState.Idle
-        _photos.value = emptyList()
-        ImageUtils.clearCameraCache(getApplication())
-    }
-
-    /** The session the photos are for: the history dialog when open, else the session summary. */
-    private fun activeTarget(): EstimateTarget? =
-        _estimateTarget.value ?: _summary.value?.let { s -> s.sessionId?.let { EstimateTarget(s.setNum, it) } }
-
-    fun addPhotos(uris: List<Uri>) {
-        _photos.update { (it + uris).distinct().take(MAX_PHOTOS) }
-        if (_estimate.value is EstimateState.Error) _estimate.value = EstimateState.Idle
-    }
-
-    fun removePhoto(uri: Uri) = _photos.update { it - uri }
-
-    /** Sends the collected photos with the set image to the OpenRouter model and stores the estimate on the target session. */
-    fun estimateProgress() {
-        val target = activeTarget() ?: return
-        val photos = _photos.value
+    /** Sends the photo at [uri] with the set image to the OpenRouter model and stores the estimate on the summary's session. */
+    fun estimateProgress(uri: Uri) {
+        val sum = _summary.value ?: return
+        val sessionId = sum.sessionId ?: return
         val d = repo.value
-        val entry = d.entry(target.setNum) ?: return
-        val session = entry.sessions.firstOrNull { it.id == target.sessionId } ?: return
-        if (photos.isEmpty()) return
+        val entry = d.entry(sum.setNum) ?: return
         if (d.openRouterKey.isBlank()) {
             _estimate.value = EstimateState.Error("Stel eerst een OpenRouter API-sleutel in bij Instellingen.")
             return
         }
-        // The build time up to and including this session, so a late estimate for an old session still adds up.
-        val upTo = entry.sessions.filter { it.startMs <= session.startMs }
-        val build = BuildContext(entry.set, upTo.sumOf { it.durSec }, upTo.size)
         estimateJob?.cancel()
         _estimate.value = EstimateState.Loading
         estimateJob = viewModelScope.launch {
             val ctx = getApplication<Application>()
             try {
-                val encoded = photos.map { ImageUtils.encodeForUpload(ctx, it) }
-                val res = openRouter.estimate(d.openRouterKey, d.openRouterModel, build, encoded)
-                repo.setSessionProgress(target.setNum, target.sessionId, res.percent, res.note.ifBlank { null })
+                val photo = ImageUtils.encodeForUpload(ctx, uri)
+                val build = BuildContext(entry.set, entry.totalSec, entry.sessions.size)
+                val res = openRouter.estimate(d.openRouterKey, d.openRouterModel, build, photo)
+                repo.setSessionProgress(sum.setNum, sessionId, res.percent, res.note.ifBlank { null })
                 _estimate.value = EstimateState.Result(res.percent, res.note, res.confidence)
-                _photos.value = emptyList()
-                ImageUtils.clearCameraCache(ctx)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _estimate.value = EstimateState.Error(e.message ?: "Er ging iets mis.")
+            } finally {
+                ImageUtils.clearCameraCache(ctx)
             }
         }
     }
 
-    /** Back to choosing photos; the ones already picked stay so a retry needs no new photos. */
     fun resetEstimate() {
         _estimate.value = EstimateState.Idle
-    }
-
-    /** Loads the vision models for the settings picker once; retries after an error. */
-    fun loadVisionModels() {
-        if (_models.value.models.isNotEmpty() || _models.value.loading) return
-        _models.value = ModelsState(loading = true)
-        viewModelScope.launch {
-            _models.value = runCatching { ModelsState(models = openRouter.visionModels()) }
-                .getOrElse { ModelsState(error = it.message ?: "Kon de modellen niet laden.") }
-        }
     }
 }
