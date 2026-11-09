@@ -46,7 +46,8 @@ class AuthExpiredException : ApiException(tr("Je sessie is verlopen. Log opnieuw
  * The tables and access rules are in supabase/schema.sql.
  */
 class CommunityApi(baseUrl: String, private val anonKey: String) {
-    private val base = baseUrl.trimEnd('/')
+    // The project URL only: the dashboard also shows ".../rest/v1", which would turn every path into a 404.
+    private val base = baseUrl.trim().trimEnd('/').removeSuffix("/rest/v1").removeSuffix("/auth/v1").trimEnd('/')
 
     /** False when the build has no SUPABASE_URL / SUPABASE_ANON_KEY in local.properties. */
     val configured: Boolean get() = base.isNotBlank() && anonKey.isNotBlank()
