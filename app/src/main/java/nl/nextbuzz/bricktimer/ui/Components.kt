@@ -1,5 +1,8 @@
 package nl.nextbuzz.bricktimer.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -459,4 +462,11 @@ fun InputField(
             modifier = Modifier.fillMaxWidth(),
         )
     }
+}
+
+/** The activity behind a Compose context, needed for Google Play and ad screens. */
+tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

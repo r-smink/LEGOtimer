@@ -99,6 +99,7 @@ private fun appDataToJson(d: AppData): JSONObject {
         .put("openRouterModel", d.openRouterModel)
         .put("themeMode", d.themeMode.name)
         .put("language", d.language.name)
+        .put("premium", d.premium)
         .put("account", d.account?.let { a ->
             JSONObject().put("userId", a.userId).put("email", a.email).put("username", a.username)
                 .put("access", a.accessToken).put("refresh", a.refreshToken).put("expires", a.expiresAtMs)
@@ -134,6 +135,7 @@ private fun appDataFromJson(o: JSONObject): AppData {
         openRouterModel = o.optString("openRouterModel", "").ifBlank { DEFAULT_OPENROUTER_MODEL },
         themeMode = runCatching { ThemeMode.valueOf(o.getString("themeMode")) }.getOrDefault(ThemeMode.DARK),
         language = runCatching { AppLanguage.valueOf(o.getString("language")) }.getOrDefault(AppLanguage.SYSTEM),
+        premium = o.optBoolean("premium", false),
         account = o.optJSONObject("account")?.let { a ->
             Account(
                 a.getString("userId"), a.optString("email"), a.optString("username"),

@@ -72,6 +72,8 @@ data class AppData(
     val themeMode: ThemeMode = ThemeMode.DARK,
     val language: AppLanguage = AppLanguage.SYSTEM,
     val account: Account? = null,
+    /** Bought the one-time ad-free upgrade; re-checked with Google Play on every launch. */
+    val premium: Boolean = false,
 ) {
     val current: PortfolioEntry? get() = portfolio.firstOrNull { it.status == BuildStatus.CURRENT }
     fun entry(setNum: String): PortfolioEntry? = portfolio.firstOrNull { it.set.setNum == setNum }

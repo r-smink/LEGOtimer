@@ -79,6 +79,8 @@ import nl.nextbuzz.bricktimer.data.DEFAULT_OPENROUTER_MODEL
 import nl.nextbuzz.bricktimer.data.ThemeMode
 import nl.nextbuzz.bricktimer.data.AppLanguage
 import nl.nextbuzz.bricktimer.logic.tr
+import nl.nextbuzz.bricktimer.monetize.Ads
+import nl.nextbuzz.bricktimer.monetize.Premium
 import nl.nextbuzz.bricktimer.util.ImageUtils
 import nl.nextbuzz.bricktimer.ui.screens.AchievementsScreen
 import nl.nextbuzz.bricktimer.ui.screens.CatalogScreen
@@ -265,7 +267,19 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
     }
 
     if (showSettings) {
+        val activity = ctx.findActivity()
+        val premium = remember { Premium.get(ctx) }
+        val price by premium.price.collectAsStateWithLifecycle()
+        LaunchedEffect(Unit) { premium.refresh() }
         SettingsDialog(
+            isPremium = data.premium,
+            price = price,
+            onBuyPremium = {
+                if (activity == null || !premium.buy(activity)) {
+                    Toast.makeText(ctx, tr("Google Play is nu niet bereikbaar. Probeer het later opnieuw.", "Google Play isn't available right now. Please try again later."), Toast.LENGTH_SHORT).show()
+                }
+            },
+            onAdPrivacy = if (activity != null && !data.premium && Ads.privacyOptionsRequired(ctx)) ({ Ads.showPrivacyOptions(activity) }) else null,
             apiKey = data.apiKey,
             openRouterKey = data.openRouterKey,
             openRouterModel = data.openRouterModel,
@@ -376,6 +390,10 @@ private fun SummaryStat(value: String, label: String, modifier: Modifier) {
 
 @Composable
 private fun SettingsDialog(
+    isPremium: Boolean,
+    price: String?,
+    onBuyPremium: () -> Unit,
+    onAdPrivacy: (() -> Unit)?,
     apiKey: String,
     openRouterKey: String,
     openRouterModel: String,
@@ -396,6 +414,27 @@ private fun SettingsDialog(
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).verticalScroll(rememberScrollState()).padding(22.dp)) {
             T(tr("Instellingen", "Settings"), 20.sp, weight = FontWeight.Bold)
+
+            Overline("Premium", Modifier.padding(top = 18.dp, bottom = 8.dp))
+            if (isPremium) {
+                T(tr("Reclamevrij ✓ Bedankt voor je steun!", "Ad-free ✓ Thanks for your support!"), 14.sp, weight = FontWeight.SemiBold, color = c.accent)
+            } else {
+                GradientButton(
+                    if (price != null) tr("Reclamevrij voor $price", "Go ad-free for $price") else tr("Reclamevrij maken", "Go ad-free"),
+                    onBuyPremium, Modifier.fillMaxWidth(), fontSize = 14.sp, vertical = 12.dp,
+                )
+                T(
+                    tr("Eenmalige aankoop: geen advertentie meer bij het starten van de timer.", "One-time purchase: no more ads when you start the timer."),
+                    12.sp, Modifier.padding(top = 6.dp), color = c.textMuted, lineHeight = 17.sp,
+                )
+                if (onAdPrivacy != null) {
+                    T(
+                        tr("Privacykeuzes voor advertenties", "Ad privacy choices"), 13.sp,
+                        Modifier.padding(top = 4.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onAdPrivacy).padding(vertical = 6.dp),
+                        weight = FontWeight.SemiBold, color = c.accent,
+                    )
+                }
+            }
             Overline(tr("Rebrickable API-sleutel", "Rebrickable API key"), Modifier.padding(top = 18.dp, bottom = 8.dp))
             InputField(key, { key = it }, tr("Plak hier je API key", "Paste your API key here"))
             T(

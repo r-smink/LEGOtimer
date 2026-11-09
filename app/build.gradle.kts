@@ -30,7 +30,12 @@ android {
     }
 
     buildTypes {
+        // Google's test interstitial in debug builds: clicking your own live ads gets an AdMob account suspended.
+        debug {
+            buildConfigField("String", "AD_UNIT_TIMER", "\"ca-app-pub-3940256099942544/1033173712\"")
+        }
         release {
+            buildConfigField("String", "AD_UNIT_TIMER", "\"ca-app-pub-3296149774798998/9036674263\"")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
@@ -67,4 +72,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    implementation("com.google.android.gms:play-services-ads:25.5.0")
+    implementation("com.google.android.ump:user-messaging-platform:4.0.0")
+    implementation("com.android.billingclient:billing-ktx:9.1.0")
 }

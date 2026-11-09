@@ -15,7 +15,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
+import nl.nextbuzz.bricktimer.monetize.Ads
+import nl.nextbuzz.bricktimer.monetize.Premium
 import nl.nextbuzz.bricktimer.ui.AppViewModel
 import nl.nextbuzz.bricktimer.ui.BrickTimerApp
 import nl.nextbuzz.bricktimer.ui.SplashScreen
@@ -28,6 +34,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Premium.get(this).refresh()
+        if (!vm.data.value.premium) Ads.init(this)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                vm.adRequests.collect { Ads.show(this@MainActivity) }
+            }
+        }
         setContent {
             val data by vm.data.collectAsStateWithLifecycle()
             val dark = isDarkTheme(data.themeMode)

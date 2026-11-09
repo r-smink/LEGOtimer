@@ -200,6 +200,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages = _messages.asSharedFlow()
 
+    /** Fires when a timer starts in the free version; the activity shows an interstitial on top of the running timer. */
+    private val _adRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val adRequests = _adRequests.asSharedFlow()
+
     private var themes: Map<Int, Theme> = store.loadThemes()
     private val _themeOptions = MutableStateFlow(themeOptions(themes))
     val themeOptions: StateFlow<List<ThemeOption>> = _themeOptions.asStateFlow()
@@ -523,7 +527,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- timer
 
     fun toggleTimer() {
-        if (repo.startTimer()) return
+        if (repo.startTimer()) {
+            if (!repo.value.premium) _adRequests.tryEmit(Unit)
+            return
+        }
         val before = repo.value
         val (entry, session) = repo.finishSession() ?: return
         val total = repo.value.entry(entry.set.setNum)?.totalSec ?: session.durSec
