@@ -48,7 +48,9 @@ import nl.nextbuzz.bricktimer.logic.AchievementKind
 import nl.nextbuzz.bricktimer.logic.Challenge
 import nl.nextbuzz.bricktimer.logic.ChallengeKind
 import nl.nextbuzz.bricktimer.logic.achievements
+import nl.nextbuzz.bricktimer.logic.builderStats
 import nl.nextbuzz.bricktimer.logic.challenges
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.Overline
 import nl.nextbuzz.bricktimer.ui.ProgressBar
 import nl.nextbuzz.bricktimer.ui.ScreenTitle
@@ -61,14 +63,11 @@ import nl.nextbuzz.bricktimer.ui.theme.LocalAppColors
 fun AchievementsScreen(data: AppData) {
     val list = achievements(data)
     val challengeList = challenges(data)
-    val titles = challengeList.sumOf { it.level }
-    // Every challenge tier reached earns a star on top of the habit stars.
-    val totalStars = list.sumOf { if (it.platinum) 0 else it.stars } + titles
-    val platinumStars = list.sumOf { if (it.platinum) 3 else 0 }
+    val stats = builderStats(data)
     val rank = challengeList.first { it.kind == ChallengeKind.RANK }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 30.dp)) {
-        ScreenTitle("Awards", "Verdien sterren en titels met bouwen", Modifier.padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 16.dp))
+        ScreenTitle("Awards", tr("Verdien sterren en titels met bouwen", "Earn stars and titles by building"), Modifier.padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 16.dp))
 
         val shape = RoundedCornerShape(16.dp)
         val divider = Color.White.copy(alpha = .25f)
@@ -76,13 +75,16 @@ fun AchievementsScreen(data: AppData) {
             Modifier.fillMaxWidth().padding(bottom = 20.dp).shadow(10.dp, shape, ambientColor = Brand.Glow, spotColor = Brand.Glow)
                 .clip(shape).background(Brand.gradient).padding(18.dp),
         ) {
-            Overline("Jouw bouwrang", color = Color.White.copy(alpha = .85f), size = 11.sp)
+            Overline(tr("Jouw bouwrang", "Your builder rank"), color = Color.White.copy(alpha = .85f), size = 11.sp)
             Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Rounded.MilitaryTech, null, tint = Color.White, modifier = Modifier.size(28.dp))
-                T(rank.title ?: "Nog geen titel", 26.sp, weight = FontWeight.Bold, color = Color.White)
+                T(rank.title ?: tr("Nog geen titel", "No title yet"), 26.sp, weight = FontWeight.Bold, color = Color.White)
             }
             T(
-                "${rank.kind.fmt(rank.value)} gebouwd · ${rank.nextLabel.replaceFirstChar { it.lowercase() }}", 13.sp,
+                tr(
+                    "${rank.kind.fmt(rank.value)} gebouwd · ${rank.nextLabel.replaceFirstChar { it.lowercase() }}",
+                    "${rank.kind.fmt(rank.value)} built · ${rank.nextLabel.replaceFirstChar { it.lowercase() }}",
+                ), 13.sp,
                 Modifier.padding(top = 4.dp, bottom = 10.dp), color = Color.White.copy(alpha = .85f),
             )
             Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(divider)) {
@@ -90,18 +92,18 @@ fun AchievementsScreen(data: AppData) {
             }
             Box(Modifier.padding(vertical = 14.dp).fillMaxWidth().height(1.dp).background(divider))
             Row(Modifier.height(IntrinsicSize.Min)) {
-                HeroStat(totalStars, "Sterren", Modifier.weight(1f))
+                HeroStat(stats.stars, tr("Sterren", "Stars"), Modifier.weight(1f))
                 Box(Modifier.width(1.dp).fillMaxHeight().background(divider))
-                HeroStat(platinumStars, "Platinum", Modifier.weight(1f))
+                HeroStat(stats.platinum, "Platinum", Modifier.weight(1f))
                 Box(Modifier.width(1.dp).fillMaxHeight().background(divider))
-                HeroStat(titles, "Titels", Modifier.weight(1f))
+                HeroStat(stats.titles, tr("Titels", "Titles"), Modifier.weight(1f))
             }
         }
 
         Overline("Challenges", Modifier.padding(start = 2.dp, bottom = 10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { challengeList.forEach { ChallengeCard(it) } }
 
-        Overline("Bouwgewoontes", Modifier.padding(start = 2.dp, top = 24.dp, bottom = 10.dp))
+        Overline(tr("Bouwgewoontes", "Build habits"), Modifier.padding(start = 2.dp, top = 24.dp, bottom = 10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { list.forEach { AchievementCard(it) } }
     }
 }
@@ -196,7 +198,7 @@ private fun AchievementCard(a: Achievement) {
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.Bottom) {
-            T("${a.count}× behaald", 13.sp, Modifier.weight(1f), weight = FontWeight.SemiBold)
+            T(tr("${a.count}× behaald", "${a.count}× earned"), 13.sp, Modifier.weight(1f), weight = FontWeight.SemiBold)
             T(a.nextLabel, 12.sp, color = c.textSubtle)
         }
         ProgressBar(a.progress, brush = if (a.platinum) Brand.gradient else Brush.linearGradient(listOf(gold, gold)))

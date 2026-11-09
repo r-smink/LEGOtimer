@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrickTimer · Account verwijderen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --text: #111827; --muted: #6b7280; --subtle: #9ca3af;
+    --border: #e5e7eb; --tint: #ffedd5; --accent: #c2410c;
+    --grad: linear-gradient(135deg, #f97316, #db2777);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #140d24; --card: #211a38; --text: #f3f0fa; --muted: #a79cc0; --subtle: #7d7196;
+      --border: rgba(255,255,255,.09); --tint: rgba(219,39,119,.32); --accent: #fb9a6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 Outfit, system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 56px; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+  .tile { width: 52px; height: 52px; border-radius: 13px; background: var(--grad); display: grid; place-items: center;
+          box-shadow: 0 6px 18px rgba(219,39,119,.35); flex: none; }
+  .wordmark { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+  .wordmark span { background: linear-gradient(135deg, #fdba74, #f472b6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero { background: var(--grad); color: #fff; border-radius: 16px; padding: 22px; margin-bottom: 18px;
+          box-shadow: 0 10px 28px rgba(219,39,119,.3); }
+  .hero h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -.025em; }
+  .hero p { margin: 0; opacity: .88; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 12px; }
+  h2 { margin: 0 0 10px; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+  .step { width: 28px; height: 28px; border-radius: 50%; background: var(--grad); color: #fff; font-size: 14px; display: grid; place-items: center; flex: none; }
+  .overline { text-transform: uppercase; letter-spacing: .05em; font-size: 12px; font-weight: 600; color: var(--subtle); margin: 26px 2px 10px; }
+  p, li { color: var(--muted); }
+  p { margin: 0 0 10px; }
+  p:last-child { margin-bottom: 0; }
+  ul, ol { margin: 0; padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--accent); font-weight: 600; }
+  .path { display: inline-block; background: var(--tint); color: var(--accent); border-radius: 8px; padding: 2px 10px; font-weight: 700; }
+  .button { display: inline-block; margin-top: 6px; background: var(--grad); color: #fff; text-decoration: none; border-radius: 10px;
+            padding: 12px 22px; font-weight: 600; box-shadow: 0 6px 18px rgba(219,39,119,.35); }
+  footer { color: var(--subtle); font-size: 13px; text-align: center; margin-top: 30px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="tile">
+      <svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="36" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-dasharray="178 48" transform="rotate(-104 50 50)"/>
+        <circle cx="38" cy="38" r="7.6" fill="#fff"/><circle cx="62" cy="38" r="7.6" fill="#fff"/>
+        <circle cx="38" cy="62" r="7.6" fill="#fff"/><circle cx="62" cy="62" r="7.6" fill="#fff"/>
+      </svg>
+    </div>
+    <div class="wordmark">Brick<span>Timer</span></div>
+  </header>
+
+  <section class="hero">
+    <h1>Account verwijderen</h1>
+    <p>Je BrickTimer-account en alles wat je hebt gedeeld, definitief weg.</p>
+  </section>
+
+  <div class="overline">Twee manieren</div>
+
+  <div class="card">
+    <h2><span class="step">1</span>In de app (direct)</h2>
+    <p>Open BrickTimer en ga naar <span class="path">Ranking → Account verwijderen</span>. Bevestig, en je account is meteen verwijderd.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">2</span>Per e-mail</h2>
+    <p>Heb je de app niet meer? Stuur vanaf het e-mailadres van je account een mail met je gebruikersnaam. We verwijderen je account binnen 30 dagen en laten je weten wanneer het klaar is.</p>
+    <a class="button" href="mailto:bricktimer@fyndable.ai?subject=BrickTimer%20account%20verwijderen">Verwijdering aanvragen</a>
+  </div>
+
+  <div class="overline">Wat er gebeurt</div>
+
+  <div class="card">
+    <h2>Dit wordt verwijderd</h2>
+    <ul>
+      <li>Je account: e-mailadres, gebruikersnaam en wachtwoord</li>
+      <li>Je openbare profiel: bouwtijd, sets, stenen, sterren, titels en awards</li>
+      <li>Al je gedeelde builds op het leaderboard</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Dit blijft</h2>
+    <ul>
+      <li>Je builds en sessies <strong>op je eigen telefoon</strong>. Die staan lokaal opgeslagen, en je kunt de app zonder account blijven gebruiken.</li>
+      <li>Kopieën in back-ups, maximaal <strong>30 dagen</strong>. Daarna zijn ook die weg.</li>
+    </ul>
+    <p style="margin-top:10px">We bewaren niets langer, ook niet anoniem.</p>
+  </div>
+
+  <footer>BrickTimer is een app van Nextbuzz · <a href="privacy.html">Privacybeleid</a> · <a href="en/delete-account.html">English</a></footer>
+</main>
+</body>
+</html>

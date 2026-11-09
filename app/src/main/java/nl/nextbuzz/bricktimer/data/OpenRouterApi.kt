@@ -2,6 +2,9 @@ package nl.nextbuzz.bricktimer.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import nl.nextbuzz.bricktimer.logic.isDutch
+import nl.nextbuzz.bricktimer.logic.numberLocale
+import nl.nextbuzz.bricktimer.logic.tr
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -9,7 +12,11 @@ import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
 
-enum class Confidence(val label: String) { LOW("Lage zekerheid"), MEDIUM("Redelijke zekerheid"), HIGH("Hoge zekerheid") }
+enum class Confidence(private val labelNl: String, private val labelEn: String) {
+    LOW("Lage zekerheid", "Low confidence"), MEDIUM("Redelijke zekerheid", "Fair confidence"), HIGH("Hoge zekerheid", "High confidence");
+
+    val label: String get() = tr(labelNl, labelEn)
+}
 
 data class ProgressEstimate(val percent: Int, val confidence: Confidence, val note: String)
 
@@ -42,15 +49,22 @@ class OpenRouterApi {
         val set = build.set
         val minutes = build.totalSec / 60
         val facts = buildString {
-            append("Set: ${set.name} (${set.displayNumber}), ${set.numParts} onderdelen")
-            if (set.numMinifigs != null) append(", ${set.numMinifigs} minifiguren")
-            append(".\nBouwtijd tot nu toe: $minutes minuten over ${build.sessions} sessie(s).")
-            if (set.numParts > 0 && minutes > 0) append(" Verdeeld over alle onderdelen is dat ${"%.1f".format(build.totalSec.toDouble() / set.numParts)} sec per onderdeel.")
-            append("\n\nAfbeelding 1 is de voltooide set. ")
-            if (photosBase64.size == 1) append("Afbeelding 2 is mijn huidige build.")
+            append(tr("Set: ${set.name} (${set.displayNumber}), ${set.numParts} onderdelen", "Set: ${set.name} (${set.displayNumber}), ${set.numParts} pieces"))
+            if (set.numMinifigs != null) append(tr(", ${set.numMinifigs} minifiguren", ", ${set.numMinifigs} minifigures"))
+            append(tr(".\nBouwtijd tot nu toe: $minutes minuten over ${build.sessions} sessie(s).", ".\nBuild time so far: $minutes minutes over ${build.sessions} session(s)."))
+            if (set.numParts > 0 && minutes > 0) {
+                val spp = "%.1f".format(numberLocale, build.totalSec.toDouble() / set.numParts)
+                append(tr(" Verdeeld over alle onderdelen is dat $spp sec per onderdeel.", " Spread over all pieces, that is $spp sec per piece."))
+            }
+            append(tr("\n\nAfbeelding 1 is de voltooide set. ", "\n\nImage 1 is the finished set. "))
+            if (photosBase64.size == 1) append(tr("Afbeelding 2 is mijn huidige build.", "Image 2 is my current build."))
             else append(
-                "Afbeelding 2 t/m ${photosBase64.size + 1} zijn foto's van mijn huidige build. Dit kunnen losse secties zijn die later " +
-                    "samengevoegd worden, of dezelfde build vanuit een andere hoek: tel losse secties bij elkaar op en tel niets dubbel."
+                tr(
+                    "Afbeelding 2 t/m ${photosBase64.size + 1} zijn foto's van mijn huidige build. Dit kunnen losse secties zijn die later " +
+                        "samengevoegd worden, of dezelfde build vanuit een andere hoek: tel losse secties bij elkaar op en tel niets dubbel.",
+                    "Images 2 to ${photosBase64.size + 1} are photos of my current build. They may be separate sections that will be " +
+                        "joined later, or the same build from another angle: add separate sections together and don't count anything twice.",
+                )
             )
         }
         val content = JSONArray()
@@ -64,7 +78,7 @@ class OpenRouterApi {
             .put(
                 "messages",
                 JSONArray()
-                    .put(JSONObject().put("role", "system").put("content", SYSTEM_PROMPT))
+                    .put(JSONObject().put("role", "system").put("content", systemPrompt()))
                     .put(JSONObject().put("role", "user").put("content", content)),
             )
         val res = request("POST", "chat/completions", key, body)
@@ -76,9 +90,9 @@ class OpenRouterApi {
         // Some models wrap the JSON in a code fence or add a sentence around it.
         val start = text.indexOf('{')
         val end = text.lastIndexOf('}')
-        if (start < 0 || end <= start) throw ApiException("Het AI-model gaf geen bruikbaar antwoord.")
-        val o = runCatching { JSONObject(text.substring(start, end + 1)) }.getOrElse { throw ApiException("Het AI-model gaf geen bruikbaar antwoord.") }
-        if (!o.has("percent")) throw ApiException("Het AI-model gaf geen percentage terug.")
+        if (start < 0 || end <= start) throw ApiException(tr("Het AI-model gaf geen bruikbaar antwoord.", "The AI model didn't give a usable answer."))
+        val o = runCatching { JSONObject(text.substring(start, end + 1)) }.getOrElse { throw ApiException(tr("Het AI-model gaf geen bruikbaar antwoord.", "The AI model didn't give a usable answer.")) }
+        if (!o.has("percent")) throw ApiException(tr("Het AI-model gaf geen percentage terug.", "The AI model didn't return a percentage."))
         val pct = o.optDouble("percent", 0.0).let { if (it.isNaN()) 0.0 else it }.toInt().coerceIn(0, 100)
         val confidence = when (o.optString("confidence").lowercase()) {
             "high" -> Confidence.HIGH
@@ -106,21 +120,21 @@ class OpenRouterApi {
             if (body != null) conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             when (val code = conn.responseCode) {
                 200 -> JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                401, 403 -> throw ApiException("Ongeldige OpenRouter API-sleutel.")
-                402 -> throw ApiException("Onvoldoende OpenRouter-tegoed.")
-                404 -> throw ApiException("Model niet gevonden op OpenRouter. Kies een ander model in Instellingen.")
-                429 -> throw ApiException("Te veel verzoeken. Probeer het over een paar seconden opnieuw.")
+                401, 403 -> throw ApiException(tr("Ongeldige OpenRouter API-sleutel.", "Invalid OpenRouter API key."))
+                402 -> throw ApiException(tr("Onvoldoende OpenRouter-tegoed.", "Not enough OpenRouter credit."))
+                404 -> throw ApiException(tr("Model niet gevonden op OpenRouter. Kies een ander model in Instellingen.", "Model not found on OpenRouter. Pick another model in Settings."))
+                429 -> throw ApiException(tr("Te veel verzoeken. Probeer het over een paar seconden opnieuw.", "Too many requests. Try again in a few seconds."))
                 else -> {
                     val detail = runCatching {
                         JSONObject(conn.errorStream.bufferedReader().use { it.readText() }).optJSONObject("error")?.optString("message")
                     }.getOrNull()
-                    throw ApiException("OpenRouter gaf een fout ($code)" + if (detail.isNullOrBlank()) "." else ": $detail")
+                    throw ApiException(tr("OpenRouter gaf een fout ($code)", "OpenRouter returned an error ($code)") + if (detail.isNullOrBlank()) "." else ": $detail")
                 }
             }
         } catch (e: SocketTimeoutException) {
-            throw ApiException("OpenRouter reageerde niet op tijd. Probeer het opnieuw.")
+            throw ApiException(tr("OpenRouter reageerde niet op tijd. Probeer het opnieuw.", "OpenRouter didn't respond in time. Please try again."))
         } catch (e: IOException) {
-            throw ApiException("Geen verbinding met OpenRouter. Controleer je internet.")
+            throw ApiException(tr("Geen verbinding met OpenRouter. Controleer je internet.", "Can't reach OpenRouter. Check your internet connection."))
         } finally {
             conn.disconnect()
         }
@@ -129,7 +143,20 @@ class OpenRouterApi {
     private fun JSONArray?.contains(value: String): Boolean = this != null && (0 until length()).any { optString(it) == value }
 
     private companion object {
-        val SYSTEM_PROMPT = """
+        /** Picked per call so the prompt, and the model's note shown to the user, follow the current app language. */
+        fun systemPrompt(): String = if (isDutch) SYSTEM_PROMPT_NL else SYSTEM_PROMPT_EN
+
+        val SYSTEM_PROMPT_EN = """
+            You are a LEGO building expert. You get a photo of the finished set and one or more photos of someone's build in progress.
+            Estimate what percentage of the set has been built. Compare which parts of the model are already there, how big and how complete they are.
+            Separate sections on different photos belong to the same build. Loose pieces, bags and the instructions in the photo are not built yet.
+            Use the build time and the number of pieces as a plausibility check: an experienced builder takes about 5 to 12 seconds per piece.
+            If your visual estimate is clearly impossible given the time spent, adjust it and say so in the note.
+            Reply only with JSON in this form:
+            {"percent": <whole number 0-100>, "confidence": "low" | "medium" | "high", "note": "<one or two short sentences in English about what is done and what is still missing>"}
+        """.trimIndent()
+
+        val SYSTEM_PROMPT_NL = """
             Je bent een LEGO-bouwexpert. Je krijgt een foto van de voltooide set en één of meer foto's van iemands build in uitvoering.
             Schat hoeveel procent van de set al gebouwd is. Vergelijk welke delen van het model al staan, hoe groot en hoe compleet ze zijn.
             Losse secties op verschillende foto's horen samen bij dezelfde build. Losse onderdelen, zakjes en de instructies op de foto zijn nog niet gebouwd.

@@ -6,51 +6,65 @@ import java.time.Instant
 import java.time.ZoneId
 
 /** One level of a challenge: reaching [threshold] earns [title]. */
-data class Tier(val threshold: Long, val title: String)
+data class Tier(val threshold: Long, val titleNl: String, val titleEn: String) {
+    val title: String get() = tr(titleNl, titleEn)
+}
 
 /** Tiered building challenges; each tier awards a title. [fmt] renders a value in the challenge's unit. */
-enum class ChallengeKind(val title: String, val desc: String, val tiers: List<Tier>, val fmt: (Long) -> String) {
+enum class ChallengeKind(
+    private val titleNl: String, private val titleEn: String,
+    private val descNl: String, private val descEn: String,
+    val tiers: List<Tier>, val fmt: (Long) -> String,
+) {
     RANK(
-        "Bouwrang", "Volledig gebouwde sets",
-        listOf(Tier(5, "Opperman"), Tier(20, "Vakman"), Tier(50, "Voorman"), Tier(100, "Uitvoerder"), Tier(250, "Brickmaster")),
+        "Bouwrang", "Builder rank", "Volledig gebouwde sets", "Fully built sets",
+        listOf(Tier(5, "Opperman", "Apprentice"), Tier(20, "Vakman", "Craftsman"), Tier(50, "Voorman", "Foreman"), Tier(100, "Uitvoerder", "Site Manager"), Tier(250, "Brickmaster", "Brickmaster")),
         { if (it == 1L) "1 set" else "$it sets" },
     ),
     BRICKS(
-        "Stenenteller", "Stenen verwerkt in voltooide sets",
-        listOf(Tier(1_000, "Steenzetter"), Tier(10_000, "Metselaar"), Tier(50_000, "Torenbouwer"), Tier(100_000, "Wolkenkrabber"), Tier(250_000, "Stenenmagnaat")),
-        { "${Fmt.pieces(it.toInt())} stenen" },
+        "Stenenteller", "Brick counter", "Stenen verwerkt in voltooide sets", "Bricks used in finished sets",
+        listOf(Tier(1_000, "Steenzetter", "Bricklayer"), Tier(10_000, "Metselaar", "Mason"), Tier(50_000, "Torenbouwer", "Tower Builder"), Tier(100_000, "Wolkenkrabber", "Skyscraper"), Tier(250_000, "Stenenmagnaat", "Brick Tycoon")),
+        { "${Fmt.pieces(it.toInt())} ${tr("stenen", "bricks")}" },
     ),
     HOURS(
-        "Bouwuren", "Totale bouwtijd over alle sets",
-        listOf(Tier(10, "Hobbyist"), Tier(50, "Fanaat"), Tier(100, "Doorzetter"), Tier(250, "Veteraan"), Tier(500, "Legende")),
-        { "${it}u" },
+        "Bouwuren", "Build hours", "Totale bouwtijd over alle sets", "Total build time across all sets",
+        listOf(Tier(10, "Hobbyist", "Hobbyist"), Tier(50, "Fanaat", "Enthusiast"), Tier(100, "Doorzetter", "Persistent"), Tier(250, "Veteraan", "Veteran"), Tier(500, "Legende", "Legend")),
+        { "${it}${tr("u", "h")}" },
     ),
     BIG_SET(
-        "Groots bouwen", "Grootste voltooide set in stenen",
-        listOf(Tier(500, "Projectbouwer"), Tier(1_000, "Kasteelbouwer"), Tier(2_500, "Megabouwer"), Tier(5_000, "Monumentbouwer"), Tier(10_000, "Wereldwonder")),
-        { "${Fmt.pieces(it.toInt())} stenen" },
+        "Groots bouwen", "Building big", "Grootste voltooide set in stenen", "Largest finished set in bricks",
+        listOf(Tier(500, "Projectbouwer", "Project Builder"), Tier(1_000, "Kasteelbouwer", "Castle Builder"), Tier(2_500, "Megabouwer", "Mega Builder"), Tier(5_000, "Monumentbouwer", "Monument Builder"), Tier(10_000, "Wereldwonder", "World Wonder")),
+        { "${Fmt.pieces(it.toInt())} ${tr("stenen", "bricks")}" },
     ),
     THEMES(
-        "Themaverzamelaar", "Verschillende thema's voltooid",
-        listOf(Tier(3, "Ontdekker"), Tier(5, "Avonturier"), Tier(10, "Wereldreiziger"), Tier(20, "Multiversum")),
-        { if (it == 1L) "1 thema" else "$it thema's" },
+        "Themaverzamelaar", "Theme collector", "Verschillende thema's voltooid", "Different themes finished",
+        listOf(Tier(3, "Ontdekker", "Explorer"), Tier(5, "Avonturier", "Adventurer"), Tier(10, "Wereldreiziger", "Globetrotter"), Tier(20, "Multiversum", "Multiverse")),
+        { if (it == 1L) tr("1 thema", "1 theme") else tr("$it thema's", "$it themes") },
     ),
     MARATHON(
-        "Marathon", "Langste bouwsessie in één ruk",
-        listOf(Tier(60, "Volhouder"), Tier(120, "Marathonbouwer"), Tier(240, "IJzeren bouwer"), Tier(480, "Bouwmachine")),
-        { if (it >= 60) "${it / 60}u ${(it % 60).toString().padStart(2, '0')}m" else "${it}m" },
+        "Marathon", "Marathon", "Langste bouwsessie in één ruk", "Longest build session in one go",
+        listOf(Tier(60, "Volhouder", "Stayer"), Tier(120, "Marathonbouwer", "Marathon Builder"), Tier(240, "IJzeren bouwer", "Iron Builder"), Tier(480, "Bouwmachine", "Building Machine")),
+        { if (it >= 60) "${it / 60}${tr("u", "h")} ${(it % 60).toString().padStart(2, '0')}m" else "${it}m" },
     ),
     STREAK(
-        "Bouwstreak", "Dagen op rij met een bouwsessie",
-        listOf(Tier(3, "Op dreef"), Tier(7, "Weekstrijder"), Tier(14, "Onstuitbaar"), Tier(30, "Maandmeester")),
-        { if (it == 1L) "1 dag" else "$it dagen" },
+        "Bouwstreak", "Build streak", "Dagen op rij met een bouwsessie", "Days in a row with a build session",
+        listOf(Tier(3, "Op dreef", "On a Roll"), Tier(7, "Weekstrijder", "Week Warrior"), Tier(14, "Onstuitbaar", "Unstoppable"), Tier(30, "Maandmeester", "Month Master")),
+        { if (it == 1L) tr("1 dag", "1 day") else tr("$it dagen", "$it days") },
     ),
     MINIFIGS(
-        "Minifig-verzamelaar", "Minifiguren in voltooide sets",
-        listOf(Tier(10, "Figurant"), Tier(25, "Teamleider"), Tier(50, "Kapitein"), Tier(100, "Generaal"), Tier(250, "Minifig-koning")),
-        { "$it minifiguren" },
+        "Minifig-verzamelaar", "Minifig collector", "Minifiguren in voltooide sets", "Minifigures in finished sets",
+        listOf(Tier(10, "Figurant", "Extra"), Tier(25, "Teamleider", "Team Leader"), Tier(50, "Kapitein", "Captain"), Tier(100, "Generaal", "General"), Tier(250, "Minifig-koning", "Minifig King")),
+        { "$it ${tr("minifiguren", "minifigures")}" },
     ),
+    ;
+
+    val title: String get() = tr(titleNl, titleEn)
+    val desc: String get() = tr(descNl, descEn)
 }
+
+/** Shows a rank title from another player (stored in their language) in the current language. */
+fun localizedTitle(title: String): String =
+    ChallengeKind.entries.flatMap { it.tiers }.firstOrNull { it.titleNl == title || it.titleEn == title }?.title ?: title
 
 data class Challenge(val kind: ChallengeKind, val value: Long) {
     /** Number of tiers reached. */
@@ -64,8 +78,8 @@ data class Challenge(val kind: ChallengeKind, val value: Long) {
         return (value - prev).toFloat() / (n.threshold - prev)
     }
     val nextLabel: String get() {
-        val n = next ?: return "Hoogste titel behaald"
-        return "Nog ${kind.fmt(n.threshold - value)} tot ${n.title}"
+        val n = next ?: return tr("Hoogste titel behaald", "Highest title reached")
+        return tr("Nog ${kind.fmt(n.threshold - value)} tot ${n.title}", "${kind.fmt(n.threshold - value)} more to ${n.title}")
     }
 }
 

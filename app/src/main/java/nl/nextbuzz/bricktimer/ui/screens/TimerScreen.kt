@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import nl.nextbuzz.bricktimer.data.AppData
 import nl.nextbuzz.bricktimer.logic.Fmt
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.GradientButton
 import nl.nextbuzz.bricktimer.ui.IconCircle
 import nl.nextbuzz.bricktimer.ui.LogoTile
@@ -73,6 +75,7 @@ fun TimerScreen(
     onToggle: () -> Unit,
     onOpenCurrent: () -> Unit,
     onBrowse: () -> Unit,
+    onAddManualSession: () -> Unit,
 ) {
     val c = LocalAppColors.current
     val running = data.timer.running
@@ -86,9 +89,9 @@ fun TimerScreen(
     val elapsed = if (running) maxOf(0L, (now - data.timer.startMs) / 1000) else 0L
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = when {
-        hour < 12 -> "Goedemorgen"
-        hour < 18 -> "Goedemiddag"
-        else -> "Goedenavond"
+        hour < 12 -> tr("Goedemorgen", "Good morning")
+        hour < 18 -> tr("Goedemiddag", "Good afternoon")
+        else -> tr("Goedenavond", "Good evening")
     }
 
     Column(
@@ -110,12 +113,12 @@ fun TimerScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 IconCircle(Icons.Rounded.Schedule, 96.dp, 44.dp)
-                T("Nog geen huidige build", 19.sp, weight = FontWeight.Bold)
+                T(tr("Nog geen huidige build", "No current build yet"), 19.sp, weight = FontWeight.Bold)
                 T(
-                    "Voeg een set toe aan je portfolio en markeer hem als huidige build om de timer te starten.",
+                    tr("Voeg een set toe aan je portfolio en markeer hem als huidige build om de timer te starten.", "Add a set to your portfolio and mark it as your current build to start the timer."),
                     14.sp, color = c.textMuted, lineHeight = 21.sp, align = TextAlign.Center,
                 )
-                GradientButton("Sets bekijken", onBrowse)
+                GradientButton(tr("Sets bekijken", "Browse sets"), onBrowse)
             }
             return@Column
         }
@@ -127,14 +130,14 @@ fun TimerScreen(
                     T(Fmt.clock(elapsed), 40.sp, weight = FontWeight.Bold, letterSpacing = (-0.02).em)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         StatusDot(running)
-                        T(if (running) "Aan het bouwen" else "Klaar om te starten", 13.sp, weight = FontWeight.SemiBold, color = c.textMuted)
+                        T(if (running) tr("Aan het bouwen", "Building") else tr("Klaar om te starten", "Ready to start"), 13.sp, weight = FontWeight.SemiBold, color = c.textMuted)
                     }
                 }
             }
 
             Spacer(Modifier.height(22.dp))
             GradientButton(
-                text = if (running) "Stop bouwen" else "Start bouwen",
+                text = if (running) tr("Stop bouwen", "Stop building") else tr("Start bouwen", "Start building"),
                 onClick = onToggle,
                 modifier = Modifier.fillMaxWidth(),
                 icon = if (running) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
@@ -145,6 +148,14 @@ fun TimerScreen(
                 vertical = 17.dp,
             )
 
+            if (!running) {
+                T(
+                    tr("Timer vergeten? Handmatig sessie toevoegen", "Forgot the timer? Add a session manually"), 12.5.sp,
+                    Modifier.padding(top = 8.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onAddManualSession).padding(horizontal = 10.dp, vertical = 6.dp),
+                    weight = FontWeight.SemiBold, color = c.accent, align = TextAlign.Center,
+                )
+            }
+
             Spacer(Modifier.height(12.dp))
             Row(
                 Modifier.fillMaxWidth().card(14.dp, onOpenCurrent).padding(14.dp),
@@ -153,9 +164,9 @@ fun TimerScreen(
             ) {
                 SetThumb(cur.set, 52.dp, 11.dp)
                 Column(Modifier.weight(1f)) {
-                    Overline("Huidige build", color = c.accent, size = 11.sp)
+                    Overline(tr("Huidige build", "Current build"), color = c.accent, size = 11.sp)
                     T(cur.set.name, 15.sp, weight = FontWeight.SemiBold, maxLines = 1)
-                    T("${Fmt.pieces(cur.set.numParts)} stukjes · ${cur.set.themeName.ifBlank { cur.set.displayNumber }}", 12.5.sp, color = c.textMuted, maxLines = 1)
+                    T(tr("${Fmt.pieces(cur.set.numParts)} stukjes · ${cur.set.themeName.ifBlank { cur.set.displayNumber }}", "${Fmt.pieces(cur.set.numParts)} pieces · ${cur.set.themeName.ifBlank { cur.set.displayNumber }}"), 12.5.sp, color = c.textMuted, maxLines = 1)
                 }
                 Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = c.textSubtle)
             }
@@ -164,7 +175,7 @@ fun TimerScreen(
                 Spacer(Modifier.height(12.dp))
                 Column(Modifier.fillMaxWidth().card(14.dp).padding(14.dp)) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
-                        Overline("Voortgang (AI-schatting)", Modifier.weight(1f), size = 11.sp)
+                        Overline(tr("Voortgang (AI-schatting)", "Progress (AI estimate)"), Modifier.weight(1f), size = 11.sp)
                         T("~$pct%", 15.sp, weight = FontWeight.Bold)
                     }
                     ProgressBar(pct / 100f)
@@ -176,14 +187,14 @@ fun TimerScreen(
             val todaySec = today.sumOf { it.durSec }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("Vandaag", if (todaySec > 0) Fmt.dur(todaySec) else "0m", Modifier.weight(1f), valueSize = 22.sp)
-                StatTile("Sessies vandaag", today.size.toString(), Modifier.weight(1f), valueSize = 22.sp)
+                StatTile(tr("Vandaag", "Today"), if (todaySec > 0) Fmt.dur(todaySec) else "0m", Modifier.weight(1f), valueSize = 22.sp)
+                StatTile(tr("Sessies vandaag", "Sessions today"), today.size.toString(), Modifier.weight(1f), valueSize = 22.sp)
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("Totaal deze set", if (cur.totalSec > 0) Fmt.dur(cur.totalSec) else "0m", Modifier.weight(1f), valueSize = 22.sp)
+                StatTile(tr("Totaal deze set", "Total this set"), if (cur.totalSec > 0) Fmt.dur(cur.totalSec) else "0m", Modifier.weight(1f), valueSize = 22.sp)
                 // Sec / steen only appears once the set is finished; the current build is by definition not.
-                StatTile("Sessies totaal", cur.sessions.size.toString(), Modifier.weight(1f), valueSize = 22.sp)
+                StatTile(tr("Sessies totaal", "Total sessions"), cur.sessions.size.toString(), Modifier.weight(1f), valueSize = 22.sp)
             }
         }
     }

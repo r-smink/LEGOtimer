@@ -42,6 +42,7 @@ import nl.nextbuzz.bricktimer.data.AppData
 import nl.nextbuzz.bricktimer.data.BuildStatus
 import nl.nextbuzz.bricktimer.data.LegoSet
 import nl.nextbuzz.bricktimer.logic.Fmt
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.Chip
 import nl.nextbuzz.bricktimer.ui.EmptyCard
 import nl.nextbuzz.bricktimer.ui.GradientButton
@@ -75,8 +76,8 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
     ) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                ScreenTitle("Mijn builds", "${data.portfolio.size} ${if (data.portfolio.size == 1) "set" else "sets"} in portfolio · $built gebouwd", Modifier.weight(1f))
-                OutlineButton("Historie", onHistory, icon = Icons.Rounded.History)
+                ScreenTitle(tr("Mijn builds", "My builds"), tr("${data.portfolio.size} ${if (data.portfolio.size == 1) "set" else "sets"} in portfolio · $built gebouwd", "${data.portfolio.size} ${if (data.portfolio.size == 1) "set" else "sets"} in portfolio · $built built"), Modifier.weight(1f))
+                OutlineButton(tr("Historie", "History"), onHistory, icon = Icons.Rounded.History)
             }
         }
 
@@ -93,11 +94,11 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Box(Modifier.size(7.dp).clip(CircleShape).background(Color.White))
-                                Overline("Huidige build", color = Color.White.copy(alpha = .85f), size = 11.sp)
+                                Overline(tr("Huidige build", "Current build"), color = Color.White.copy(alpha = .85f), size = 11.sp)
                             }
                             T(cur.set.name, 21.sp, Modifier.padding(top = 6.dp), weight = FontWeight.Bold, color = Color.White, lineHeight = 25.sp)
                             T(
-                                "${Fmt.pieces(cur.set.numParts)} stukjes · ${if (cur.totalSec > 0) Fmt.dur(cur.totalSec) else "0m"} gebouwd",
+                                tr("${Fmt.pieces(cur.set.numParts)} stukjes · ${if (cur.totalSec > 0) Fmt.dur(cur.totalSec) else "0m"} gebouwd", "${Fmt.pieces(cur.set.numParts)} pieces · ${if (cur.totalSec > 0) Fmt.dur(cur.totalSec) else "0m"} built"),
                                 13.sp, Modifier.padding(top = 4.dp), color = Color.White.copy(alpha = .85f),
                             )
                         }
@@ -111,9 +112,9 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
             item {
                 EmptyCard {
                     IconCircle(Icons.Rounded.Inventory2, 72.dp, 34.dp)
-                    T("Je portfolio is nog leeg", 16.sp, Modifier.padding(top = 14.dp), weight = FontWeight.Bold)
-                    T("Zoek een LEGO set en voeg hem toe om je bouwtijd bij te houden.", 13.5.sp, Modifier.padding(top = 6.dp, bottom = 16.dp), color = c.textMuted, align = TextAlign.Center)
-                    GradientButton("Sets bekijken", onBrowse)
+                    T(tr("Je portfolio is nog leeg", "Your portfolio is still empty"), 16.sp, Modifier.padding(top = 14.dp), weight = FontWeight.Bold)
+                    T(tr("Zoek een LEGO set en voeg hem toe om je bouwtijd bij te houden.", "Find a LEGO set and add it to track your build time."), 13.5.sp, Modifier.padding(top = 6.dp, bottom = 16.dp), color = c.textMuted, align = TextAlign.Center)
+                    GradientButton(tr("Sets bekijken", "Browse sets"), onBrowse)
                 }
             }
             return@LazyColumn
@@ -122,12 +123,12 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
         if (themes.size >= 2) {
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item { Chip("Alle thema's", activeFilter == null, { themeFilter = null }) }
+                    item { Chip(tr("Alle thema's", "All themes"), activeFilter == null, { themeFilter = null }) }
                     items(themes, key = { it.first }) { (id, name) -> Chip(name, activeFilter == id, { themeFilter = if (activeFilter == id) null else id }) }
                 }
             }
         }
-        item { Overline(if (activeFilter == null) "Alle sets" else "${entries.size} ${if (entries.size == 1) "set" else "sets"} in dit thema", Modifier.padding(start = 2.dp)) }
+        item { Overline(if (activeFilter == null) tr("Alle sets", "All sets") else tr("${entries.size} ${if (entries.size == 1) "set" else "sets"} in dit thema", "${entries.size} ${if (entries.size == 1) "set" else "sets"} in this theme"), Modifier.padding(start = 2.dp)) }
         items(entries, key = { it.set.setNum }) { e ->
             Row(
                 Modifier.fillMaxWidth().card(14.dp) { onOpen(e.set) }.padding(12.dp),
@@ -138,10 +139,10 @@ fun PortfolioScreen(data: AppData, onOpen: (LegoSet) -> Unit, onHistory: () -> U
                 Column(Modifier.weight(1f)) {
                     T(e.set.name, 15.sp, weight = FontWeight.SemiBold, maxLines = 1)
                     val sub = if (e.sessions.isNotEmpty()) {
-                        "${Fmt.dur(e.totalSec)} · ${e.sessions.size} ${if (e.sessions.size == 1) "sessie" else "sessies"}" +
-                            if (e.status == BuildStatus.DONE) " · ${Fmt.spb(e.totalSec, e.set.numParts)}/steen" else ""
+                        tr("${Fmt.dur(e.totalSec)} · ${e.sessions.size} ${if (e.sessions.size == 1) "sessie" else "sessies"}", "${Fmt.dur(e.totalSec)} · ${e.sessions.size} ${if (e.sessions.size == 1) "session" else "sessions"}") +
+                            if (e.status == BuildStatus.DONE) tr(" · ${Fmt.spb(e.totalSec, e.set.numParts)}/steen", " · ${Fmt.spb(e.totalSec, e.set.numParts)}/brick") else ""
                     } else {
-                        "${e.set.displayNumber} · ${Fmt.pieces(e.set.numParts)} stukjes"
+                        tr("${e.set.displayNumber} · ${Fmt.pieces(e.set.numParts)} stukjes", "${e.set.displayNumber} · ${Fmt.pieces(e.set.numParts)} pieces")
                     }
                     T(sub, 12.5.sp, Modifier.padding(top = 2.dp), color = c.textMuted, maxLines = 1)
                     Spacer(Modifier.height(6.dp))

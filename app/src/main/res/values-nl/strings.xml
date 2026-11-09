@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Start en stop de timer van je huidige build</string>
+    <string name="widget_ready">Klaar om te starten</string>
+</resources>

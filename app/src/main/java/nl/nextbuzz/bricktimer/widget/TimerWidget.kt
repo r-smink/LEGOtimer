@@ -18,6 +18,7 @@ import nl.nextbuzz.bricktimer.R
 import nl.nextbuzz.bricktimer.data.AppData
 import nl.nextbuzz.bricktimer.data.Repository
 import nl.nextbuzz.bricktimer.logic.Fmt
+import nl.nextbuzz.bricktimer.logic.tr
 
 /** Home screen widget showing the current build with a start/stop button. */
 class TimerWidget : AppWidgetProvider() {
@@ -31,9 +32,9 @@ class TimerWidget : AppWidgetProvider() {
         if (intent.action != ACTION_TOGGLE) return super.onReceive(context, intent)
         val repo = Repository.get(context)
         val msg = if (repo.value.timer.running) {
-            repo.finishSession()?.let { (entry, session) -> "Sessie opgeslagen · ${Fmt.dur(session.durSec)} aan ${entry.set.name}" }
+            repo.finishSession()?.let { (entry, session) -> tr("Sessie opgeslagen · ${Fmt.dur(session.durSec)} aan ${entry.set.name}", "Session saved · ${Fmt.dur(session.durSec)} on ${entry.set.name}") }
         } else {
-            if (repo.startTimer()) "Timer gestart" else null
+            if (repo.startTimer()) tr("Timer gestart", "Timer started") else null
         }
         // The widget may show stale state (e.g. the build was finished in the app); redraw either way.
         if (msg == null) refresh(context)
@@ -69,8 +70,8 @@ class TimerWidget : AppWidgetProvider() {
 
             val cur = data.current
             if (cur == null) {
-                v.setTextViewText(R.id.widget_title, "Geen huidige build")
-                v.setTextViewText(R.id.widget_status, "Tik om een set te kiezen")
+                v.setTextViewText(R.id.widget_title, tr("Geen huidige build", "No current build"))
+                v.setTextViewText(R.id.widget_status, tr("Tik om een set te kiezen", "Tap to pick a set"))
                 v.setViewVisibility(R.id.widget_status, View.VISIBLE)
                 v.setViewVisibility(R.id.widget_chrono, View.GONE)
                 v.setViewVisibility(R.id.widget_toggle, View.GONE)
@@ -92,14 +93,14 @@ class TimerWidget : AppWidgetProvider() {
                 v.setViewVisibility(R.id.widget_chrono, View.VISIBLE)
                 v.setViewVisibility(R.id.widget_status, View.GONE)
                 v.setImageViewResource(R.id.widget_toggle, R.drawable.widget_stop)
-                v.setContentDescription(R.id.widget_toggle, "Stop bouwen")
+                v.setContentDescription(R.id.widget_toggle, tr("Stop bouwen", "Stop building"))
             } else {
                 v.setChronometer(R.id.widget_chrono, SystemClock.elapsedRealtime(), null, false)
                 v.setViewVisibility(R.id.widget_chrono, View.GONE)
-                v.setTextViewText(R.id.widget_status, if (cur.totalSec > 0) "Totaal ${Fmt.dur(cur.totalSec)}" else "Klaar om te starten")
+                v.setTextViewText(R.id.widget_status, if (cur.totalSec > 0) tr("Totaal ${Fmt.dur(cur.totalSec)}", "Total ${Fmt.dur(cur.totalSec)}") else tr("Klaar om te starten", "Ready to start"))
                 v.setViewVisibility(R.id.widget_status, View.VISIBLE)
                 v.setImageViewResource(R.id.widget_toggle, R.drawable.widget_play)
-                v.setContentDescription(R.id.widget_toggle, "Start bouwen")
+                v.setContentDescription(R.id.widget_toggle, tr("Start bouwen", "Start building"))
             }
             return v
         }

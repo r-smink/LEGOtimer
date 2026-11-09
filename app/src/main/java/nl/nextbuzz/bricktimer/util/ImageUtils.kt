@@ -10,6 +10,7 @@ import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import nl.nextbuzz.bricktimer.logic.tr
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -34,13 +35,13 @@ object ImageUtils {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IOException("Kan de foto niet lezen.")
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IOException(tr("Kan de foto niet lezen.", "Couldn't read the photo."))
 
         var sample = 1
         while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_SIDE) sample *= 2
         val decoded = resolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-        } ?: throw IOException("Kan de foto niet lezen.")
+        } ?: throw IOException(tr("Kan de foto niet lezen.", "Couldn't read the photo."))
 
         val rotation = resolver.openInputStream(uri)?.use {
             when (ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {

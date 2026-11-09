@@ -21,6 +21,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,9 +41,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -45,11 +56,15 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import nl.nextbuzz.bricktimer.data.BuildStatus
 import nl.nextbuzz.bricktimer.data.LegoSet
+import nl.nextbuzz.bricktimer.data.PortfolioEntry
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.theme.Brand
 import nl.nextbuzz.bricktimer.ui.theme.LocalAppColors
+import nl.nextbuzz.bricktimer.ui.theme.Outfit
 
 @Composable
 fun T(
@@ -154,10 +169,10 @@ fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
 fun StatusPill(status: BuildStatus?, modifier: Modifier = Modifier) {
     val c = LocalAppColors.current
     val (bg, fg, label) = when (status) {
-        BuildStatus.CURRENT -> Triple(c.tint, c.accent, "Huidige build")
-        BuildStatus.DONE -> Triple(Brand.SuccessLight, Brand.SuccessDark, "Voltooid")
-        BuildStatus.PLANNED -> Triple(c.sunken, c.textMuted, "Gepland")
-        null -> Triple(c.sunken, c.textMuted, "Niet toegevoegd")
+        BuildStatus.CURRENT -> Triple(c.tint, c.accent, tr("Huidige build", "Current build"))
+        BuildStatus.DONE -> Triple(Brand.SuccessLight, Brand.SuccessDark, tr("Voltooid", "Finished"))
+        BuildStatus.PLANNED -> Triple(c.sunken, c.textMuted, tr("Gepland", "Planned"))
+        null -> Triple(c.sunken, c.textMuted, tr("Niet toegevoegd", "Not added"))
     }
     T(
         label.uppercase(), 10.5.sp,
@@ -279,7 +294,7 @@ fun BuildProgressCard(pct: Int, note: String, confidence: String?, modifier: Mod
     Column(modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.sunken).padding(14.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
-                Overline("Geschatte voortgang", size = 11.sp)
+                Overline(tr("Geschatte voortgang", "Estimated progress"), size = 11.sp)
                 T("${(animated * 100).toInt()}%", 30.sp, weight = FontWeight.Bold, letterSpacing = (-0.02).em)
             }
             if (confidence != null) {
@@ -292,5 +307,156 @@ fun BuildProgressCard(pct: Int, note: String, confidence: String?, modifier: Mod
         }
         ProgressBar(animated, Modifier.padding(top = 6.dp), height = 12.dp)
         if (note.isNotBlank()) T(note, 12.5.sp, Modifier.padding(top = 10.dp), color = c.textMuted, lineHeight = 18.sp)
+    }
+}
+
+/** Dialog for manually adding a session duration for a build when timer was forgotten. */
+@Composable
+fun AddManualSessionDialog(
+    portfolio: List<PortfolioEntry>,
+    initialSet: LegoSet?,
+    onSave: (setNum: String, minutes: Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val c = LocalAppColors.current
+    var selectedSetNum by remember { mutableStateOf(initialSet?.setNum ?: portfolio.firstOrNull()?.set?.setNum.orEmpty()) }
+    var hoursText by remember { mutableStateOf("0") }
+    var minutesText by remember { mutableStateOf("30") }
+
+    val totalMin = (hoursText.toIntOrNull() ?: 0) * 60 + (minutesText.toIntOrNull() ?: 0)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).verticalScroll(rememberScrollState()).padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            T(tr("Sessie handmatig toevoegen", "Add session manually"), 20.sp, weight = FontWeight.Bold)
+            T(tr("Heb je gebouwd zonder de timer aan te zetten? Voeg je bouwtijd hier toe.", "Built without starting the timer? Add your build time here."), 12.5.sp, color = c.textMuted, lineHeight = 17.sp)
+
+            if (portfolio.size > 1) {
+                Overline(tr("Kies een set", "Choose a set"))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    portfolio.forEach { entry ->
+                        val sel = entry.set.setNum == selectedSetNum
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                                .background(if (sel) c.tint else c.sunken)
+                                .clickable { selectedSetNum = entry.set.setNum }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            SetThumb(entry.set, 36.dp, 8.dp)
+                            Column(Modifier.weight(1f)) {
+                                T(entry.set.name, 13.5.sp, weight = if (sel) FontWeight.SemiBold else FontWeight.Normal, color = if (sel) c.accent else c.text, maxLines = 1)
+                                T(entry.set.displayNumber, 11.sp, color = c.textSubtle)
+                            }
+                            if (sel) Icon(Icons.Rounded.Check, null, tint = c.accent, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+            } else if (portfolio.isNotEmpty()) {
+                val set = portfolio.firstOrNull { it.set.setNum == selectedSetNum }?.set ?: portfolio.first().set
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.sunken).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    SetThumb(set, 40.dp, 8.dp)
+                    Column {
+                        T(set.name, 14.sp, weight = FontWeight.SemiBold)
+                        T(set.displayNumber, 11.5.sp, color = c.textMuted)
+                    }
+                }
+            }
+
+            Overline(tr("Tijdsduur", "Duration"))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    T(tr("Uren", "Hours"), 12.sp, color = c.textMuted, modifier = Modifier.padding(bottom = 4.dp))
+                    DurationInputField(hoursText, { hoursText = it.filter { ch -> ch.isDigit() } })
+                }
+                Column(Modifier.weight(1f)) {
+                    T(tr("Minuten", "Minutes"), 12.sp, color = c.textMuted, modifier = Modifier.padding(bottom = 4.dp))
+                    DurationInputField(minutesText, { minutesText = it.filter { ch -> ch.isDigit() } })
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(15 to "15m", 30 to "30m", 45 to "45m", 60 to tr("1u", "1h"), 90 to tr("1,5u", "1.5h"), 120 to tr("2u", "2h")).forEach { (min, label) ->
+                    val isSel = totalMin == min
+                    T(
+                        label, 12.5.sp,
+                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                            .background(if (isSel) c.accent else c.sunken)
+                            .clickable {
+                                hoursText = (min / 60).toString()
+                                minutesText = (min % 60).toString()
+                            }
+                            .padding(vertical = 8.dp),
+                        weight = FontWeight.SemiBold,
+                        color = if (isSel) Color.White else c.textMuted,
+                        align = TextAlign.Center,
+                    )
+                }
+            }
+
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                T(tr("Annuleren", "Cancel"), 14.sp, Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onDismiss).padding(12.dp), weight = FontWeight.SemiBold, color = c.textMuted)
+                GradientButton(
+                    tr("Toevoegen", "Add"),
+                    { if (totalMin > 0 && selectedSetNum.isNotEmpty()) onSave(selectedSetNum, totalMin) },
+                    brush = if (totalMin > 0 && selectedSetNum.isNotEmpty()) Brand.gradient else Brush.linearGradient(listOf(Brand.Gray400, Brand.Gray400)),
+                    fontSize = 14.sp, vertical = 11.dp, horizontal = 18.dp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DurationInputField(value: String, onChange: (String) -> Unit) {
+    val c = LocalAppColors.current
+    Box(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.sunken)
+            .border(2.dp, c.border, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            textStyle = TextStyle(fontFamily = Outfit, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = c.text),
+            cursorBrush = SolidColor(c.accent),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** Single-line text field on a sunken background; [secret] hides the text, as for passwords and API keys. */
+@Composable
+fun InputField(
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    secret: Boolean = false,
+    keyboardType: KeyboardType = if (secret) KeyboardType.Password else KeyboardType.Text,
+) {
+    val c = LocalAppColors.current
+    Box(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.sunken)
+            .border(2.dp, c.border, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        if (value.isEmpty()) T(placeholder, 14.sp, color = c.textSubtle)
+        BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            textStyle = TextStyle(fontFamily = Outfit, fontSize = 14.sp, color = c.text),
+            cursorBrush = SolidColor(c.accent),
+            visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

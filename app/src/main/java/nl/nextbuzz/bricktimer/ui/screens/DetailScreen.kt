@@ -51,6 +51,8 @@ import nl.nextbuzz.bricktimer.data.LegoSet
 import nl.nextbuzz.bricktimer.data.Session
 import nl.nextbuzz.bricktimer.logic.Fmt
 import nl.nextbuzz.bricktimer.logic.SPEED_LIMIT_SEC_PER_BRICK
+import nl.nextbuzz.bricktimer.logic.numberLocale
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.GradientButton
 import nl.nextbuzz.bricktimer.ui.Grid2
 import nl.nextbuzz.bricktimer.ui.IconCircle
@@ -75,6 +77,7 @@ fun DetailScreen(
     onMarkDone: () -> Unit,
     onRemove: () -> Unit,
     onDeleteSession: (Long) -> Unit,
+    onAddManualSession: () -> Unit,
 ) {
     val c = LocalAppColors.current
     val ctx = LocalContext.current
@@ -89,7 +92,7 @@ fun DetailScreen(
             Box(
                 Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = .2f)).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Terug", tint = Color.White, modifier = Modifier.size(26.dp)) }
+            ) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, tr("Terug", "Back"), tint = Color.White, modifier = Modifier.size(26.dp)) }
             Row(Modifier.padding(top = 18.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 SetThumb(s, 96.dp, 16.dp, Modifier.border(1.dp, Color.White.copy(alpha = .25f), RoundedCornerShape(16.dp)))
                 Column(Modifier.weight(1f).padding(bottom = 4.dp)) {
@@ -104,21 +107,21 @@ fun DetailScreen(
                 StatusPill(entry?.status)
                 Spacer(Modifier.weight(1f))
                 if (entry != null && entry.status != BuildStatus.CURRENT) {
-                    GradientButton("Markeer huidige", onSetCurrent, fontSize = 13.sp, vertical = 9.dp, horizontal = 13.dp)
+                    GradientButton(tr("Markeer huidige", "Set as current"), onSetCurrent, fontSize = 13.sp, vertical = 9.dp, horizontal = 13.dp)
                 }
                 if (entry?.status == BuildStatus.CURRENT) {
-                    OutlineButton("Markeer klaar", onMarkDone, color = Brand.Success, borderColor = Brand.SuccessBorder)
+                    OutlineButton(tr("Markeer klaar", "Mark done"), onMarkDone, color = Brand.Success, borderColor = Brand.SuccessBorder)
                 }
             }
 
-            Overline("Set gegevens", Modifier.padding(bottom = 10.dp))
+            Overline(tr("Set gegevens", "Set details"), Modifier.padding(bottom = 10.dp))
             Grid2(
                 buildList<@Composable (Modifier) -> Unit> {
-                    add { m -> StatTile("Stukjes", Fmt.pieces(s.numParts), m, valueSize = 20.sp) }
-                    add { m -> StatTile("Setnummer", s.setNum, m, valueSize = 20.sp) }
-                    add { m -> StatTile("Thema", s.themeName.ifBlank { "—" }, m, valueSize = 16.sp) }
-                    add { m -> StatTile("Jaar", s.year.toString(), m, valueSize = 20.sp) }
-                    if (minifigs != null && minifigs > 0) add { m -> StatTile("Minifiguren", minifigs.toString(), m, valueSize = 20.sp) }
+                    add { m -> StatTile(tr("Stukjes", "Pieces"), Fmt.pieces(s.numParts), m, valueSize = 20.sp) }
+                    add { m -> StatTile(tr("Setnummer", "Set number"), s.setNum, m, valueSize = 20.sp) }
+                    add { m -> StatTile(tr("Thema", "Theme"), s.themeName.ifBlank { "—" }, m, valueSize = 16.sp) }
+                    add { m -> StatTile(tr("Jaar", "Year"), s.year.toString(), m, valueSize = 20.sp) }
+                    if (minifigs != null && minifigs > 0) add { m -> StatTile(tr("Minifiguren", "Minifigures"), minifigs.toString(), m, valueSize = 20.sp) }
                 },
             )
             if (s.setUrl != null) {
@@ -129,7 +132,7 @@ fun DetailScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    T("Bekijk op Rebrickable", 13.sp, weight = FontWeight.SemiBold, color = c.accent)
+                    T(tr("Bekijk op Rebrickable", "View on Rebrickable"), 13.sp, weight = FontWeight.SemiBold, color = c.accent)
                     Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, tint = c.accent, modifier = Modifier.size(15.dp))
                 }
             }
@@ -141,12 +144,15 @@ fun DetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     IconCircle(Icons.Rounded.AddCircle, 72.dp, 34.dp)
-                    T("Nog niet in je portfolio", 16.sp, Modifier.padding(top = 14.dp), weight = FontWeight.Bold)
+                    T(tr("Nog niet in je portfolio", "Not in your portfolio yet"), 16.sp, Modifier.padding(top = 14.dp), weight = FontWeight.Bold)
                     T(
-                        "Voeg deze set toe om bouwtijd bij te houden en statistieken te verzamelen.",
+                        tr(
+                            "Voeg deze set toe om bouwtijd bij te houden en statistieken te verzamelen.",
+                            "Add this set to track your build time and collect stats.",
+                        ),
                         13.5.sp, Modifier.padding(top = 6.dp, bottom = 16.dp), color = c.textMuted, lineHeight = 20.sp, align = TextAlign.Center,
                     )
-                    GradientButton("Toevoegen aan portfolio", onAdd)
+                    GradientButton(tr("Toevoegen aan portfolio", "Add to portfolio"), onAdd)
                 }
                 return@Column
             }
@@ -155,28 +161,28 @@ fun DetailScreen(
             val tot = entry.totalSec
             // Per-brick speed is only meaningful once the whole set is built.
             val done = entry.status == BuildStatus.DONE && has
-            Overline("Jouw statistieken", Modifier.padding(bottom = 10.dp))
+            Overline(tr("Jouw statistieken", "Your stats"), Modifier.padding(bottom = 10.dp))
             Grid2(
                 buildList<@Composable (Modifier) -> Unit> {
-                    add { m -> StatTile("Totale tijd", if (has) Fmt.dur(tot) else "—", m, accent = Brand.gradient) }
-                    if (done) add { m -> StatTile("Sec / steen", Fmt.spb(tot, s.numParts), m, accent = solid(Brand.Lava2)) }
-                    add { m -> StatTile("Sessies", entry.sessions.size.toString(), m, accent = solid(Brand.Lava1)) }
-                    add { m -> StatTile("Snelste sessie", entry.sessions.minOfOrNull { it.durSec }?.let(Fmt::dur) ?: "—", m, accent = solid(Brand.Success)) }
-                    add { m -> StatTile("Gem. sessie", if (has) Fmt.dur(tot / entry.sessions.size) else "—", m, accent = solid(Brand.Gold)) }
+                    add { m -> StatTile(tr("Totale tijd", "Total time"), if (has) Fmt.dur(tot) else "—", m, accent = Brand.gradient) }
+                    if (done) add { m -> StatTile(tr("Sec / steen", "Sec / brick"), Fmt.spb(tot, s.numParts), m, accent = solid(Brand.Lava2)) }
+                    add { m -> StatTile(tr("Sessies", "Sessions"), entry.sessions.size.toString(), m, accent = solid(Brand.Lava1)) }
+                    add { m -> StatTile(tr("Snelste sessie", "Fastest session"), entry.sessions.minOfOrNull { it.durSec }?.let(Fmt::dur) ?: "—", m, accent = solid(Brand.Success)) }
+                    add { m -> StatTile(tr("Gem. sessie", "Avg. session"), if (has) Fmt.dur(tot / entry.sessions.size) else "—", m, accent = solid(Brand.Gold)) }
                     if (done) add { m ->
                         val perMin = s.numParts * 60.0 / tot
-                        StatTile("Stenen / min", String.format(java.util.Locale.forLanguageTag("nl-NL"), "%.1f", perMin), m, accent = solid(Brand.Danger))
+                        StatTile(tr("Stenen / min", "Bricks / min"), String.format(numberLocale, "%.1f", perMin), m, accent = solid(Brand.Danger))
                     }
                 },
             )
             if (has && !done) {
-                T("Sec / steen en stenen / min verschijnen zodra de set klaar is.", 12.sp, Modifier.padding(top = 8.dp, start = 2.dp), color = c.textSubtle)
+                T(tr("Sec / steen en stenen / min verschijnen zodra de set klaar is.", "Sec / brick and bricks / min appear once the set is done."), 12.sp, Modifier.padding(top = 8.dp, start = 2.dp), color = c.textSubtle)
             }
             if (has) {
                 val first = entry.sessions.minOf { it.startMs }
                 val period = buildString {
-                    append("Gestart ").append(Fmt.date(first))
-                    entry.completedMs?.let { append(" · voltooid ").append(Fmt.date(it)) }
+                    append(tr("Gestart ", "Started ")).append(Fmt.date(first))
+                    entry.completedMs?.let { append(tr(" · voltooid ", " · finished ")).append(Fmt.date(it)) }
                 }
                 T(period, 12.5.sp, Modifier.padding(top = 10.dp, start = 2.dp), color = c.textMuted)
             }
@@ -189,14 +195,21 @@ fun DetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Icon(Icons.Rounded.Speed, null, tint = c.accent, modifier = Modifier.size(22.dp))
-                    T("SpeedBrick tempo — onder 10s per steen", 13.sp, weight = FontWeight.SemiBold, color = c.accent)
+                    T(tr("SpeedBrick tempo — onder 10s per steen", "SpeedBrick pace — under 10s per brick"), 13.sp, weight = FontWeight.SemiBold, color = c.accent)
                 }
             }
 
-            Overline("Bouwsessies", Modifier.padding(top = 8.dp, bottom = 10.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Overline(tr("Bouwsessies", "Build sessions"), Modifier.weight(1f))
+                T(
+                    tr("+ Handmatig toevoegen", "+ Add manually"), 12.sp,
+                    Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAddManualSession).padding(horizontal = 8.dp, vertical = 4.dp),
+                    weight = FontWeight.SemiBold, color = c.accent,
+                )
+            }
             if (!has) {
                 T(
-                    "Nog geen sessies. Markeer als huidige build en start de timer.", 13.sp,
+                    tr("Nog geen sessies. Markeer als huidige build en start de timer.", "No sessions yet. Set it as your current build and start the timer."), 13.sp,
                     Modifier.fillMaxWidth().card(12.dp).padding(horizontal = 10.dp, vertical = 24.dp),
                     color = c.textMuted, align = TextAlign.Center,
                 )
@@ -204,11 +217,11 @@ fun DetailScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     entry.sessions.sortedByDescending { it.startMs }.forEach { se -> SessionRow(se, s.numParts.takeIf { done }) { sessionToDelete = se } }
                 }
-                T("Houd een sessie ingedrukt om hem te verwijderen.", 11.5.sp, Modifier.padding(top = 8.dp, start = 2.dp), color = c.textSubtle)
+                T(tr("Houd een sessie ingedrukt om hem te verwijderen.", "Long-press a session to delete it."), 11.5.sp, Modifier.padding(top = 8.dp, start = 2.dp), color = c.textSubtle)
             }
 
             T(
-                "Verwijderen uit portfolio", 13.sp,
+                tr("Verwijderen uit portfolio", "Remove from portfolio"), 13.sp,
                 Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp).clip(RoundedCornerShape(8.dp))
                     .clickable { confirmRemove = true }.padding(horizontal = 12.dp, vertical = 8.dp),
                 weight = FontWeight.SemiBold, color = Brand.Danger,
@@ -218,18 +231,18 @@ fun DetailScreen(
 
     if (confirmRemove) {
         ConfirmDialog(
-            title = "Set verwijderen?",
-            text = "${s.name} en alle bijbehorende sessies worden uit je portfolio verwijderd.",
-            confirm = "Verwijderen",
+            title = tr("Set verwijderen?", "Delete set?"),
+            text = tr("${s.name} en alle bijbehorende sessies worden uit je portfolio verwijderd.", "${s.name} and all its sessions will be removed from your portfolio."),
+            confirm = tr("Verwijderen", "Delete"),
             onConfirm = { confirmRemove = false; onRemove() },
             onDismiss = { confirmRemove = false },
         )
     }
     sessionToDelete?.let { se ->
         ConfirmDialog(
-            title = "Sessie verwijderen?",
+            title = tr("Sessie verwijderen?", "Delete session?"),
             text = "${Fmt.date(se.startMs)} · ${Fmt.range(se.startMs, se.durSec)} (${Fmt.dur(se.durSec)})",
-            confirm = "Verwijderen",
+            confirm = tr("Verwijderen", "Delete"),
             onConfirm = { sessionToDelete = null; onDeleteSession(se.id) },
             onDismiss = { sessionToDelete = null },
         )
@@ -252,7 +265,7 @@ private fun SessionRow(se: Session, pieces: Int?, onLongPress: () -> Unit) {
         }
         Column(Modifier.weight(1f)) {
             T(Fmt.date(se.startMs), 14.sp, weight = FontWeight.SemiBold)
-            T(Fmt.range(se.startMs, se.durSec) + (pieces?.let { " · ${Fmt.spb(se.durSec, it)}/steen" } ?: ""), 12.sp, color = c.textMuted)
+            T(Fmt.range(se.startMs, se.durSec) + (pieces?.let { " · ${Fmt.spb(se.durSec, it)}${tr("/steen", "/brick")}" } ?: ""), 12.sp, color = c.textMuted)
         }
         T(Fmt.dur(se.durSec), 15.sp, weight = FontWeight.Bold)
     }
@@ -267,6 +280,6 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () ->
         title = { Text(title, color = c.text, fontWeight = FontWeight.Bold) },
         text = { Text(text, color = c.textMuted) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirm, color = Brand.Danger, fontWeight = FontWeight.SemiBold) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuleren", color = c.textMuted) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Annuleren", "Cancel"), color = c.textMuted) } },
     )
 }

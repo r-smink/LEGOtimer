@@ -43,6 +43,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.theme.Brand
 
 const val SPLASH_MS = 1800L
@@ -98,7 +99,7 @@ fun SplashScreen(dark: Boolean) {
             ) {
                 Wordmark(42.sp, Color.White, Brand.textGradient)
                 Spacer(Modifier.height(12.dp))
-                T("BOUW · TIJD · HERHAAL", 13.sp, weight = FontWeight.SemiBold, color = Color.White.copy(alpha = if (dark) .6f else .78f), letterSpacing = 0.18.em)
+                T(tr("BOUW · TIJD · HERHAAL", "BUILD · TIME · REPEAT"), 13.sp, weight = FontWeight.SemiBold, color = Color.White.copy(alpha = if (dark) .6f else .78f), letterSpacing = 0.18.em)
             }
         }
 

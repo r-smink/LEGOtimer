@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import nl.nextbuzz.bricktimer.logic.appLanguage
 import nl.nextbuzz.bricktimer.widget.TimerWidget
 
 /**
@@ -26,13 +27,18 @@ class Repository private constructor(private val app: Context) {
     val data: StateFlow<AppData> = _data.asStateFlow()
     val value: AppData get() = _data.value
 
+    init {
+        appLanguage = _data.value.language
+    }
+
     fun update(f: (AppData) -> AppData) {
         val before = _data.value
         _data.update(f)
         val after = _data.value
         if (after == before) return
+        appLanguage = after.language
         scope.launch { flush() }
-        if (after.timer != before.timer || after.current != before.current) TimerWidget.refresh(app)
+        if (after.timer != before.timer || after.current != before.current || after.language != before.language) TimerWidget.refresh(app)
     }
 
     /** Writes the latest state to disk; await this before a broadcast receiver finishes. */
@@ -57,6 +63,21 @@ class Repository private constructor(private val app: Context) {
             it.copy(
                 timer = TimerState(),
                 portfolio = it.portfolio.map { e -> if (e.set.setNum == cur.set.setNum) e.copy(sessions = e.sessions + session) else e },
+            )
+        }
+        return cur to session
+    }
+
+    /** Manually adds a completed session to a specific set in the portfolio. */
+    fun addManualSession(setNum: String, durMinutes: Long, startMs: Long = System.currentTimeMillis() - durMinutes * 60_000L): Pair<PortfolioEntry, Session>? {
+        val d = _data.value
+        val cur = d.entry(setNum) ?: return null
+        val durSec = maxOf(1L, durMinutes * 60L)
+        val now = System.currentTimeMillis()
+        val session = Session(id = now, startMs = startMs, durSec = durSec)
+        update {
+            it.copy(
+                portfolio = it.portfolio.map { e -> if (e.set.setNum == setNum) e.copy(sessions = e.sessions + session) else e },
             )
         }
         return cur to session

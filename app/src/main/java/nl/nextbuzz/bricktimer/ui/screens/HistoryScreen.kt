@@ -40,6 +40,7 @@ import nl.nextbuzz.bricktimer.data.LegoSet
 import nl.nextbuzz.bricktimer.data.PortfolioEntry
 import nl.nextbuzz.bricktimer.data.Session
 import nl.nextbuzz.bricktimer.logic.Fmt
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.SetThumb
 import nl.nextbuzz.bricktimer.ui.T
 import nl.nextbuzz.bricktimer.ui.card
@@ -53,6 +54,7 @@ fun HistoryScreen(
     onOpen: (LegoSet) -> Unit,
     onDeleteSession: (setNum: String, sessionId: Long) -> Unit,
     onEstimate: (setNum: String, sessionId: Long) -> Unit,
+    onAddManualSession: () -> Unit,
 ) {
     val c = LocalAppColors.current
     var toDelete by remember { mutableStateOf<Pair<PortfolioEntry, Session>?>(null) }
@@ -70,17 +72,24 @@ fun HistoryScreen(
                     Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(c.card)
                         .border(2.dp, c.border, RoundedCornerShape(12.dp)).clickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Terug", tint = c.text) }
-                Column {
-                    T("Historie", 22.sp, weight = FontWeight.Bold, letterSpacing = (-0.02).em)
-                    T("${rows.size} bouwsessies · ${Fmt.dur(totalSec)} totaal", 13.sp, color = c.textMuted)
+                ) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, tr("Terug", "Back"), tint = c.text) }
+                Column(Modifier.weight(1f)) {
+                    T(tr("Historie", "History"), 22.sp, weight = FontWeight.Bold, letterSpacing = (-0.02).em)
+                    T(tr("${rows.size} bouwsessies · ${Fmt.dur(totalSec)} totaal", "${rows.size} ${if (rows.size == 1) "session" else "sessions"} · ${Fmt.dur(totalSec)} total"), 13.sp, color = c.textMuted)
+                }
+                if (data.portfolio.isNotEmpty()) {
+                    T(
+                        tr("+ Toevoegen", "+ Add"), 12.sp,
+                        Modifier.clip(RoundedCornerShape(8.dp)).background(c.tint).clickable(onClick = onAddManualSession).padding(horizontal = 10.dp, vertical = 6.dp),
+                        weight = FontWeight.SemiBold, color = c.accent,
+                    )
                 }
             }
         }
         if (rows.isEmpty()) {
             item {
                 T(
-                    "Nog geen bouwsessies geregistreerd.", 13.sp,
+                    tr("Nog geen bouwsessies geregistreerd.", "No build sessions logged yet."), 13.sp,
                     Modifier.fillMaxWidth().card(12.dp).padding(24.dp), color = c.textMuted, align = TextAlign.Center,
                 )
             }
@@ -99,30 +108,30 @@ fun HistoryScreen(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     T(Fmt.dur(se.durSec), 15.sp, weight = FontWeight.Bold)
-                    if (e.status == BuildStatus.DONE) T("${Fmt.spb(se.durSec, set.numParts)}/steen", 11.sp, color = c.textSubtle)
-                    else if (se.progressPct != null) T("~${se.progressPct}% af", 11.sp, weight = FontWeight.SemiBold, color = c.accent)
+                    if (e.status == BuildStatus.DONE) T(tr("${Fmt.spb(se.durSec, set.numParts)}/steen", "${Fmt.spb(se.durSec, set.numParts)}/brick"), 11.sp, color = c.textSubtle)
+                    else if (se.progressPct != null) T(tr("~${se.progressPct}% af", "~${se.progressPct}% done"), 11.sp, weight = FontWeight.SemiBold, color = c.accent)
                 }
                 // Comparing needs the picture of the finished set.
                 if (set.imgUrl != null && e.status != BuildStatus.DONE) {
                     Box(
                         Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.tint).clickable { onEstimate(set.setNum, se.id) },
                         contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Rounded.AddAPhoto, "Voortgang schatten met foto", tint = c.accent, modifier = Modifier.size(18.dp)) }
+                    ) { Icon(Icons.Rounded.AddAPhoto, tr("Voortgang schatten met foto", "Estimate progress from a photo"), tint = c.accent, modifier = Modifier.size(18.dp)) }
                 }
             }
         }
         if (rows.isNotEmpty()) {
             item {
-                T("Tik op het camera-icoon om met een foto je voortgang te laten schatten. Houd een sessie ingedrukt om hem te verwijderen.", 11.5.sp, Modifier.padding(start = 2.dp), color = c.textSubtle)
+                T(tr("Tik op het camera-icoon om met een foto je voortgang te laten schatten. Houd een sessie ingedrukt om hem te verwijderen.", "Tap the camera icon to estimate your progress from a photo. Long-press a session to delete it."), 11.5.sp, Modifier.padding(start = 2.dp), color = c.textSubtle)
             }
         }
     }
 
     toDelete?.let { (e, se) ->
         ConfirmDialog(
-            title = "Sessie verwijderen?",
+            title = tr("Sessie verwijderen?", "Delete session?"),
             text = "${e.set.name}\n${Fmt.date(se.startMs)} · ${Fmt.range(se.startMs, se.durSec)} (${Fmt.dur(se.durSec)})",
-            confirm = "Verwijderen",
+            confirm = tr("Verwijderen", "Delete"),
             onConfirm = { toDelete = null; onDeleteSession(e.set.setNum, se.id) },
             onDismiss = { toDelete = null },
         )

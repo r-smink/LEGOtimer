@@ -52,10 +52,19 @@ import nl.nextbuzz.bricktimer.data.AiModel
 import nl.nextbuzz.bricktimer.data.PortfolioEntry
 import nl.nextbuzz.bricktimer.data.Session
 import nl.nextbuzz.bricktimer.logic.Fmt
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.screens.SearchField
 import nl.nextbuzz.bricktimer.ui.theme.Brand
 import nl.nextbuzz.bricktimer.ui.theme.LocalAppColors
 import nl.nextbuzz.bricktimer.util.ImageUtils
+
+const val MAX_PHOTOS = 4
+
+data class ModelsState(
+    val loading: Boolean = false,
+    val models: List<AiModel> = emptyList(),
+    val error: String? = null,
+)
 
 /** Everything the estimate UI can ask the view model to do. */
 class EstimateActions(
@@ -89,12 +98,12 @@ fun EstimateSection(estimate: EstimateState, photos: List<Uri>, hasKey: Boolean,
                     horizontalArrangement = Arrangement.spacedBy(11.dp),
                 ) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = c.textSubtle, modifier = Modifier.size(22.dp))
-                    T("Voeg een OpenRouter API-sleutel toe in Instellingen om met een foto je voortgang te laten schatten.", 12.sp, color = c.textMuted, lineHeight = 17.sp)
+                    T(tr("Voeg een OpenRouter API-sleutel toe in Instellingen om met een foto je voortgang te laten schatten.", "Add an OpenRouter API key in Settings to estimate your progress from a photo."), 12.sp, color = c.textMuted, lineHeight = 17.sp)
                 }
             } else {
-                Overline("Hoe ver ben je?", size = 11.sp)
+                Overline(tr("Hoe ver ben je?", "How far along are you?"), size = 11.sp)
                 T(
-                    "Maximaal $MAX_PHOTOS foto's, bijvoorbeeld van losse secties die nog niet aan elkaar zitten.",
+                    tr("Maximaal $MAX_PHOTOS foto's, bijvoorbeeld van losse secties die nog niet aan elkaar zitten.", "Up to $MAX_PHOTOS photos, for example of separate sections that aren't joined yet."),
                     12.sp, Modifier.padding(top = 2.dp, bottom = 8.dp), color = c.textMuted, lineHeight = 17.sp,
                 )
                 if (photos.isNotEmpty()) {
@@ -105,7 +114,7 @@ fun EstimateSection(estimate: EstimateState, photos: List<Uri>, hasKey: Boolean,
                 if (photos.size < MAX_PHOTOS) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlineButton(
-                            "Foto maken",
+                            tr("Foto maken", "Take photo"),
                             {
                                 val uri = ImageUtils.newCameraUri(ctx)
                                 cameraUri = uri
@@ -115,7 +124,7 @@ fun EstimateSection(estimate: EstimateState, photos: List<Uri>, hasKey: Boolean,
                             icon = Icons.Rounded.PhotoCamera,
                         )
                         OutlineButton(
-                            "Uit galerij",
+                            tr("Uit galerij", "From gallery"),
                             { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                             Modifier.weight(1f),
                             icon = Icons.Rounded.PhotoLibrary,
@@ -124,7 +133,7 @@ fun EstimateSection(estimate: EstimateState, photos: List<Uri>, hasKey: Boolean,
                 }
                 if (photos.isNotEmpty()) {
                     GradientButton(
-                        if (photos.size == 1) "Voortgang schatten" else "Voortgang schatten (${photos.size} foto's)",
+                        if (photos.size == 1) tr("Voortgang schatten", "Estimate progress") else tr("Voortgang schatten (${photos.size} foto's)", "Estimate progress (${photos.size} photos)"),
                         actions.onAnalyze,
                         Modifier.fillMaxWidth().padding(top = 10.dp),
                         icon = Icons.Rounded.AutoAwesome,
@@ -140,7 +149,7 @@ fun EstimateSection(estimate: EstimateState, photos: List<Uri>, hasKey: Boolean,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 CircularProgressIndicator(color = c.accent, strokeWidth = 3.dp, modifier = Modifier.size(22.dp))
-                T(if (photos.size > 1) "AI analyseert je ${photos.size} foto's…" else "AI analyseert je build…", 13.sp, weight = FontWeight.SemiBold, color = c.textMuted)
+                T(if (photos.size > 1) tr("AI analyseert je ${photos.size} foto's…", "AI is analyzing your ${photos.size} photos…") else tr("AI analyseert je build…", "AI is analyzing your build…"), 13.sp, weight = FontWeight.SemiBold, color = c.textMuted)
             }
             is EstimateState.Result -> BuildProgressCard(estimate.pct, estimate.note, estimate.confidence.label)
             is EstimateState.Error -> Column(
@@ -148,7 +157,7 @@ fun EstimateSection(estimate: EstimateState, photos: List<Uri>, hasKey: Boolean,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 T(estimate.message, 12.5.sp, color = Brand.Danger, lineHeight = 17.sp)
-                OutlineButton("Opnieuw", actions.onRetry)
+                OutlineButton(tr("Opnieuw", "Retry"), actions.onRetry)
             }
         }
     }
@@ -162,7 +171,7 @@ private fun PhotoThumb(uri: Uri, onRemove: () -> Unit) {
         Box(
             Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape).background(Color.Black.copy(alpha = .55f)).clickable(onClick = onRemove),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Rounded.Close, "Verwijderen", tint = Color.White, modifier = Modifier.size(14.dp)) }
+        ) { Icon(Icons.Rounded.Close, tr("Verwijderen", "Delete"), tint = Color.White, modifier = Modifier.size(14.dp)) }
     }
 }
 
@@ -180,15 +189,15 @@ fun EstimateDialog(
     val c = LocalAppColors.current
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).verticalScroll(rememberScrollState()).padding(22.dp)) {
-            T("Voortgang schatten", 20.sp, weight = FontWeight.Bold)
+            T(tr("Voortgang schatten", "Estimate progress"), 20.sp, weight = FontWeight.Bold)
             T(entry.set.name, 13.sp, Modifier.padding(top = 2.dp), color = c.textMuted, maxLines = 2)
-            T("Sessie van ${Fmt.date(session.startMs)} · ${Fmt.range(session.startMs, session.durSec)}", 12.sp, Modifier.padding(bottom = 14.dp), color = c.textSubtle)
+            T(tr("Sessie van ${Fmt.date(session.startMs)} · ${Fmt.range(session.startMs, session.durSec)}", "Session of ${Fmt.date(session.startMs)} · ${Fmt.range(session.startMs, session.durSec)}"), 12.sp, Modifier.padding(bottom = 14.dp), color = c.textSubtle)
             if (session.progressPct != null && estimate == EstimateState.Idle) {
                 BuildProgressCard(session.progressPct, session.progressNote.orEmpty(), null, Modifier.padding(bottom = 14.dp))
             }
             EstimateSection(estimate, photos, hasKey, actions)
             GradientButton(
-                if (estimate is EstimateState.Result) "Klaar" else "Sluiten", onDismiss,
+                if (estimate is EstimateState.Result) tr("Klaar", "Done") else tr("Sluiten", "Close"), onDismiss,
                 Modifier.fillMaxWidth().padding(top = 6.dp), radius = 10.dp, vertical = 13.dp,
             )
         }
@@ -207,25 +216,25 @@ fun ModelPicker(state: ModelsState, selected: String, onPick: (String) -> Unit, 
     LaunchedEffect(Unit) { onRetry() }
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).padding(top = 20.dp, bottom = 12.dp)) {
-            T("Kies een AI-model", 20.sp, Modifier.padding(horizontal = 20.dp), weight = FontWeight.Bold)
-            T("Alleen modellen die foto's begrijpen, goedkoopste eerst.", 12.sp, Modifier.padding(horizontal = 20.dp), color = c.textMuted)
-            Box(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp)) { SearchField(filter, { filter = it }, "Zoek een model") }
+            T(tr("Kies een AI-model", "Choose an AI model"), 20.sp, Modifier.padding(horizontal = 20.dp), weight = FontWeight.Bold)
+            T(tr("Alleen modellen die foto's begrijpen, goedkoopste eerst.", "Only models that understand photos, cheapest first."), 12.sp, Modifier.padding(horizontal = 20.dp), color = c.textMuted)
+            Box(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp)) { SearchField(filter, { filter = it }, tr("Zoek een model", "Search for a model")) }
             when {
                 state.loading -> {
                     Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = c.accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
                     }
-                    T("Modellen worden geladen…", 13.sp, Modifier.fillMaxWidth().padding(bottom = 12.dp), color = c.textMuted, align = TextAlign.Center)
+                    T(tr("Modellen worden geladen…", "Loading models…"), 13.sp, Modifier.fillMaxWidth().padding(bottom = 12.dp), color = c.textMuted, align = TextAlign.Center)
                 }
                 state.error != null -> Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     T(state.error, 13.sp, color = Brand.Danger, align = TextAlign.Center)
-                    OutlineButton("Opnieuw", onRetry)
+                    OutlineButton(tr("Opnieuw", "Retry"), onRetry)
                 }
                 else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
                     // Lets a model id be typed in directly, e.g. one that is newer than the list.
                     val typed = filter.trim()
                     if ('/' in typed && shown.none { it.id == typed }) {
-                        item { ModelRow(AiModel(typed, "Gebruik \"$typed\"", null), false) { onPick(typed) } }
+                        item { ModelRow(AiModel(typed, tr("Gebruik \"$typed\"", "Use \"$typed\""), null), false) { onPick(typed) } }
                     }
                     items(shown, key = { it.id }) { m -> ModelRow(m, m.id == selected) { onPick(m.id) } }
                 }
@@ -252,7 +261,7 @@ private fun ModelRow(model: AiModel, selected: Boolean, onClick: () -> Unit) {
 }
 
 private fun priceLabel(perMillion: Double): String = when {
-    perMillion == 0.0 -> "gratis"
+    perMillion == 0.0 -> tr("gratis", "free")
     perMillion < 1 -> "$" + "%.2f".format(perMillion) + "/M"
     else -> "$" + "%.1f".format(perMillion) + "/M"
 }

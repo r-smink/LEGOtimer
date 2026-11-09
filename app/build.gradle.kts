@@ -10,6 +10,8 @@ val localProperties = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 val rebrickableKey: String = localProperties.getProperty("REBRICKABLE_API_KEY") ?: ""
+val supabaseUrl: String = localProperties.getProperty("SUPABASE_URL") ?: ""
+val supabaseAnonKey: String = localProperties.getProperty("SUPABASE_ANON_KEY") ?: ""
 
 android {
     namespace = "nl.nextbuzz.bricktimer"
@@ -19,10 +21,12 @@ android {
         applicationId = "nl.nextbuzz.bricktimer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         buildConfigField("String", "REBRICKABLE_API_KEY", "\"$rebrickableKey\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {

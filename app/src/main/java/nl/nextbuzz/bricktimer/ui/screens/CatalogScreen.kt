@@ -58,6 +58,7 @@ import androidx.compose.ui.window.Dialog
 import nl.nextbuzz.bricktimer.data.AppData
 import nl.nextbuzz.bricktimer.data.LegoSet
 import nl.nextbuzz.bricktimer.logic.Fmt
+import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.CatalogState
 import nl.nextbuzz.bricktimer.ui.Chip
 import nl.nextbuzz.bricktimer.ui.PartsRange
@@ -110,12 +111,12 @@ fun CatalogScreen(
     ) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                ScreenTitle("Sets", "Blader en voeg toe aan je portfolio", Modifier.weight(1f))
+                ScreenTitle("Sets", tr("Blader en voeg toe aan je portfolio", "Browse and add to your portfolio"), Modifier.weight(1f))
                 Box(
                     Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(c.card)
                         .border(2.dp, c.border, RoundedCornerShape(12.dp)).clickable(onClick = onSettings),
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Rounded.Settings, "Instellingen", tint = c.text, modifier = Modifier.size(20.dp)) }
+                ) { Icon(Icons.Rounded.Settings, tr("Instellingen", "Settings"), tint = c.text, modifier = Modifier.size(20.dp)) }
             }
         }
         item { SearchField(state.query, onQuery) }
@@ -126,10 +127,10 @@ fun CatalogScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Chip(state.theme?.label ?: "Alle thema's", state.theme != null, { onOpenThemes(); pickTheme = true }, icon = Icons.Rounded.ExpandMore)
-                    Chip(state.parts?.let { "${it.label} stukjes" } ?: "Alle stukjes", state.parts != null, { pickParts = true }, icon = Icons.Rounded.ExpandMore)
+                    Chip(state.theme?.label ?: tr("Alle thema's", "All themes"), state.theme != null, { onOpenThemes(); pickTheme = true }, icon = Icons.Rounded.ExpandMore)
+                    Chip(state.parts?.let { tr("${it.label} stukjes", "${it.label} pieces") } ?: tr("Alle stukjes", "Any size"), state.parts != null, { pickParts = true }, icon = Icons.Rounded.ExpandMore)
                     if (state.theme != null || state.parts != null) {
-                        Chip("Wissen", false, { onTheme(null); onParts(null) }, icon = Icons.Rounded.Close)
+                        Chip(tr("Wissen", "Clear"), false, { onTheme(null); onParts(null) }, icon = Icons.Rounded.Close)
                     }
                 }
             }
@@ -140,19 +141,22 @@ fun CatalogScreen(
                 EmptyCard {
                     IconCircle(Icons.Rounded.Key, 72.dp, 34.dp)
                     Spacer(Modifier.height(14.dp))
-                    T("Rebrickable API-sleutel nodig", 16.sp, weight = FontWeight.Bold)
+                    T(tr("Rebrickable API-sleutel nodig", "Rebrickable API key needed"), 16.sp, weight = FontWeight.Bold)
                     T(
-                        "Maak gratis een sleutel aan via rebrickable.com → Settings → API en vul hem hier in om alle LEGO sets te laden.",
+                        tr(
+                            "Maak gratis een sleutel aan via rebrickable.com → Settings → API en vul hem hier in om alle LEGO sets te laden.",
+                            "Get a free key at rebrickable.com → Settings → API and enter it here to load all LEGO sets.",
+                        ),
                         13.5.sp, Modifier.padding(top = 6.dp, bottom = 16.dp), color = c.textMuted, lineHeight = 20.sp, align = TextAlign.Center,
                     )
-                    GradientButton("Sleutel invullen", onSettings)
+                    GradientButton(tr("Sleutel invullen", "Enter key"), onSettings)
                 }
             }
             return@LazyColumn
         }
 
         if (state.items.isNotEmpty()) {
-            item { Overline("${Fmt.pieces(state.total)} ${if (state.total == 1) "set" else "sets"} gevonden", Modifier.padding(start = 2.dp, top = 6.dp)) }
+            item { Overline("${Fmt.pieces(state.total)} ${if (state.total == 1) "set" else "sets"} ${tr("gevonden", "found")}", Modifier.padding(start = 2.dp, top = 6.dp)) }
         }
         items(state.items, key = { it.setNum }) { set ->
             CatalogRow(set, inPortfolio = data.entry(set.setNum) != null, onOpen = { onOpen(set) }, onAdd = { onAdd(set) })
@@ -168,15 +172,15 @@ fun CatalogScreen(
                 EmptyCard {
                     IconCircle(Icons.Rounded.WifiOff, 64.dp, 30.dp)
                     T(state.error, 14.sp, Modifier.padding(top = 12.dp, bottom = 14.dp), color = c.textMuted, align = TextAlign.Center)
-                    GradientButton("Opnieuw proberen", onRetry)
+                    GradientButton(tr("Opnieuw proberen", "Try again"), onRetry)
                 }
             }
             state.items.isEmpty() && state.page > 0 -> item {
                 val msg = buildString {
-                    append("Geen sets gevonden")
-                    if (state.query.isNotBlank()) append(" voor \"${state.query}\"")
+                    append(tr("Geen sets gevonden", "No sets found"))
+                    if (state.query.isNotBlank()) append(tr(" voor \"${state.query}\"", " for \"${state.query}\""))
                     state.theme?.let { append(" in ${it.label}") }
-                    state.parts?.let { append(" met ${it.label} stukjes") }
+                    state.parts?.let { append(tr(" met ${it.label} stukjes", " with ${it.label} pieces")) }
                 }
                 EmptyCard { T(msg, 14.sp, color = c.textMuted, align = TextAlign.Center) }
             }
@@ -186,9 +190,9 @@ fun CatalogScreen(
     if (pickParts) {
         Dialog(onDismissRequest = { pickParts = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).padding(top = 20.dp, bottom = 12.dp)) {
-                T("Filter op stukjes", 20.sp, Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp), weight = FontWeight.Bold)
-                ThemeRow("Alle stukjes", state.parts == null) { pickParts = false; onParts(null) }
-                PartsRange.entries.forEach { r -> ThemeRow("${r.label} stukjes", state.parts == r) { pickParts = false; onParts(r) } }
+                T(tr("Filter op stukjes", "Filter by pieces"), 20.sp, Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp), weight = FontWeight.Bold)
+                ThemeRow(tr("Alle stukjes", "Any size"), state.parts == null) { pickParts = false; onParts(null) }
+                PartsRange.entries.forEach { r -> ThemeRow(tr("${r.label} stukjes", "${r.label} pieces"), state.parts == r) { pickParts = false; onParts(r) } }
             }
         }
     }
@@ -213,16 +217,16 @@ private fun ThemePicker(options: List<ThemeOption>, selected: ThemeOption?, onPi
     }
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.card).padding(top = 20.dp, bottom = 12.dp)) {
-            T("Filter op thema", 20.sp, Modifier.padding(horizontal = 20.dp), weight = FontWeight.Bold)
-            Box(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp)) { SearchField(filter, { filter = it }, "Zoek een thema") }
+            T(tr("Filter op thema", "Filter by theme"), 20.sp, Modifier.padding(horizontal = 20.dp), weight = FontWeight.Bold)
+            Box(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp)) { SearchField(filter, { filter = it }, tr("Zoek een thema", "Search themes")) }
             if (options.isEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = c.accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
                 }
-                T("Thema's worden geladen…", 13.sp, Modifier.fillMaxWidth().padding(bottom = 12.dp), color = c.textMuted, align = TextAlign.Center)
+                T(tr("Thema's worden geladen…", "Loading themes…"), 13.sp, Modifier.fillMaxWidth().padding(bottom = 12.dp), color = c.textMuted, align = TextAlign.Center)
             } else {
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
-                    if (filter.isBlank()) item { ThemeRow("Alle thema's", selected == null) { onPick(null) } }
+                    if (filter.isBlank()) item { ThemeRow(tr("Alle thema's", "All themes"), selected == null) { onPick(null) } }
                     items(shown, key = { it.id }) { t -> ThemeRow(t.label, t.id == selected?.id) { onPick(t) } }
                 }
             }
@@ -243,7 +247,7 @@ private fun ThemeRow(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String = "Zoek op naam of setnummer") {
+fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String = tr("Zoek op naam of setnummer", "Search by name or set number")) {
     val c = LocalAppColors.current
     val focus = LocalFocusManager.current
     Row(
@@ -268,7 +272,7 @@ fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String = 
             )
         }
         if (query.isNotEmpty()) {
-            Icon(Icons.Rounded.Close, "Wissen", tint = c.textSubtle, modifier = Modifier.size(18.dp).clickable { onQuery("") })
+            Icon(Icons.Rounded.Close, tr("Wissen", "Clear"), tint = c.textSubtle, modifier = Modifier.size(18.dp).clickable { onQuery("") })
         }
     }
 }
@@ -287,14 +291,14 @@ private fun CatalogRow(set: LegoSet, inPortfolio: Boolean, onOpen: () -> Unit, o
                 T(set.themeName.uppercase(), 11.sp, weight = FontWeight.SemiBold, color = c.accent, letterSpacing = 0.04.em, maxLines = 1)
             }
             T(set.name, 15.sp, weight = FontWeight.SemiBold, maxLines = 2, lineHeight = 19.sp)
-            T("${set.displayNumber} · ${Fmt.pieces(set.numParts)} stukjes · ${set.year}", 12.5.sp, Modifier.padding(top = 2.dp), color = c.textMuted, maxLines = 1)
+            T("${set.displayNumber} · ${Fmt.pieces(set.numParts)} ${tr("stukjes", "pieces")} · ${set.year}", 12.5.sp, Modifier.padding(top = 2.dp), color = c.textMuted, maxLines = 1)
         }
         val shape = RoundedCornerShape(8.dp)
         if (inPortfolio) {
-            T("Toegevoegd", 12.5.sp, Modifier.clip(shape).background(c.sunken).padding(horizontal = 12.dp, vertical = 9.dp), weight = FontWeight.SemiBold, color = c.textSubtle)
+            T(tr("Toegevoegd", "Added"), 12.5.sp, Modifier.clip(shape).background(c.sunken).padding(horizontal = 12.dp, vertical = 9.dp), weight = FontWeight.SemiBold, color = c.textSubtle)
         } else {
             T(
-                "+ Toevoegen", 12.5.sp,
+                tr("+ Toevoegen", "+ Add"), 12.5.sp,
                 Modifier.shadow(4.dp, shape, ambientColor = Brand.Glow, spotColor = Brand.Glow).clip(shape)
                     .background(Brand.gradient).clickable(onClick = onAdd).padding(horizontal = 13.dp, vertical = 9.dp),
                 weight = FontWeight.SemiBold, color = Color.White,

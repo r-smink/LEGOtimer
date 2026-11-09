@@ -2,30 +2,32 @@ package nl.nextbuzz.bricktimer.logic
 
 import java.text.NumberFormat
 import java.util.Calendar
-import java.util.Locale
 
-/** Dutch display formatting, mirroring the BrickTimer design. */
+/** Display formatting in the app language, mirroring the BrickTimer design. */
 object Fmt {
-    private val nl = Locale.forLanguageTag("nl-NL")
-    private val months = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
+    private val monthsNl = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
+    private val monthsEn = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    private val months get() = if (isDutch) monthsNl else monthsEn
 
     private fun pad(n: Long) = n.toString().padStart(2, '0')
 
     /** 01:23:45 */
     fun clock(sec: Long) = "${pad(sec / 3600)}:${pad(sec % 3600 / 60)}:${pad(sec % 60)}"
 
-    /** "2u 05m" or "4m 07s" */
+    /** "2u 05m" (Dutch) / "2h 05m", or "4m 07s" */
     fun dur(sec: Long): String {
         val h = sec / 3600
         val m = sec % 3600 / 60
-        return if (h > 0) "${h}u ${pad(m)}m" else "${m}m ${pad(sec % 60)}s"
+        return if (h > 0) "${h}${tr("u", "h")} ${pad(m)}m" else "${m}m ${pad(sec % 60)}s"
     }
 
-    /** Seconds per brick, e.g. "3,7s" */
+    /** Seconds per brick, e.g. "3,7s" (Dutch) / "3.7s" */
     fun spb(sec: Long, pieces: Int): String =
-        if (pieces <= 0) "—" else String.format(nl, "%.1fs", sec.toDouble() / pieces)
+        if (pieces <= 0) "—" else spb(sec.toDouble() / pieces)
 
-    fun pieces(n: Int): String = NumberFormat.getIntegerInstance(nl).format(n)
+    fun spb(secPerBrick: Double): String = String.format(numberLocale, "%.1fs", secPerBrick)
+
+    fun pieces(n: Int): String = NumberFormat.getIntegerInstance(numberLocale).format(n)
 
     private fun cal(ms: Long) = Calendar.getInstance().apply { timeInMillis = ms }
 

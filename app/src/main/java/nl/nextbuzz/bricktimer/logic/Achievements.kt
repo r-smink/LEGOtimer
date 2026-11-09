@@ -4,10 +4,14 @@ import nl.nextbuzz.bricktimer.data.AppData
 import nl.nextbuzz.bricktimer.data.BuildStatus
 import nl.nextbuzz.bricktimer.data.PortfolioEntry
 
-enum class AchievementKind(val title: String, val desc: String) {
-    EVENING("Avond Bouwer", "Bouwsessies tussen 20:00 en 00:00"),
-    MORNING("Ochtend Bouwer", "Bouwsessies tussen 06:00 en 10:00"),
-    SPEED("SpeedBrick", "Sets afronden onder 10s per steen"),
+enum class AchievementKind(private val titleNl: String, private val titleEn: String, private val descNl: String, private val descEn: String) {
+    EVENING("Avond Bouwer", "Night Owl", "Bouwsessies tussen 20:00 en 00:00", "Build sessions between 8 pm and midnight"),
+    MORNING("Ochtend Bouwer", "Early Bird", "Bouwsessies tussen 06:00 en 10:00", "Build sessions between 6 am and 10 am"),
+    SPEED("SpeedBrick", "SpeedBrick", "Sets afronden onder 10s per steen", "Finish sets under 10s per brick"),
+    ;
+
+    val title: String get() = tr(titleNl, titleEn)
+    val desc: String get() = tr(descNl, descEn)
 }
 
 /** Star thresholds: 25 / 50 / 100 gold stars, 500 = three platinum stars. */
@@ -30,8 +34,9 @@ data class Achievement(val kind: AchievementKind, val count: Int) {
         return (count - prev).toFloat() / (n - prev)
     }
     val nextLabel: String get() {
-        val n = next ?: return "Platinum behaald"
-        return "Nog ${n - count} tot " + if (n == PLATINUM) "platinum" else "$n×"
+        val n = next ?: return tr("Platinum behaald", "Platinum reached")
+        val goal = if (n == PLATINUM) "platinum" else "$n×"
+        return tr("Nog ${n - count} tot $goal", "${n - count} more to $goal")
     }
 }
 

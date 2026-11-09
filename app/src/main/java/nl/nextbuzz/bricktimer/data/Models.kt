@@ -50,6 +50,19 @@ const val DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash"
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** App language; SYSTEM follows the device. */
+enum class AppLanguage(val tag: String?) { SYSTEM(null), NL("nl"), EN("en") }
+
+/** Signed-in community account (Supabase); the access token is refreshed shortly before [expiresAtMs]. */
+data class Account(
+    val userId: String,
+    val email: String,
+    val username: String,
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresAtMs: Long,
+)
+
 data class AppData(
     val portfolio: List<PortfolioEntry> = emptyList(),
     val timer: TimerState = TimerState(),
@@ -57,6 +70,8 @@ data class AppData(
     val openRouterKey: String = "",
     val openRouterModel: String = DEFAULT_OPENROUTER_MODEL,
     val themeMode: ThemeMode = ThemeMode.DARK,
+    val language: AppLanguage = AppLanguage.SYSTEM,
+    val account: Account? = null,
 ) {
     val current: PortfolioEntry? get() = portfolio.firstOrNull { it.status == BuildStatus.CURRENT }
     fun entry(setNum: String): PortfolioEntry? = portfolio.firstOrNull { it.set.setNum == setNum }

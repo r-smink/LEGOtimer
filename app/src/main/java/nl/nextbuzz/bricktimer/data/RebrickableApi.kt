@@ -2,13 +2,14 @@ package nl.nextbuzz.bricktimer.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import nl.nextbuzz.bricktimer.logic.tr
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-class ApiException(message: String) : Exception(message)
+open class ApiException(message: String) : Exception(message)
 
 data class SetPage(val count: Int, val hasMore: Boolean, val results: List<LegoSet>)
 
@@ -89,13 +90,13 @@ class RebrickableApi {
         try {
             when (val code = conn.responseCode) {
                 200 -> JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                401, 403 -> throw ApiException("Ongeldige of ontbrekende Rebrickable API-sleutel.")
-                404 -> throw ApiException("Niet gevonden op Rebrickable.")
-                429 -> throw ApiException("Te veel verzoeken. Probeer het over een paar seconden opnieuw.")
-                else -> throw ApiException(if (code == 502 || code == 503 || code == 504) "Rebrickable is traag of onbereikbaar. Probeer het opnieuw." else "Rebrickable gaf een fout ($code).")
+                401, 403 -> throw ApiException(tr("Ongeldige of ontbrekende Rebrickable API-sleutel.", "Invalid or missing Rebrickable API key."))
+                404 -> throw ApiException(tr("Niet gevonden op Rebrickable.", "Not found on Rebrickable."))
+                429 -> throw ApiException(tr("Te veel verzoeken. Probeer het over een paar seconden opnieuw.", "Too many requests. Try again in a few seconds."))
+                else -> throw ApiException(if (code == 502 || code == 503 || code == 504) tr("Rebrickable is traag of onbereikbaar. Probeer het opnieuw.", "Rebrickable is slow or unreachable. Please try again.") else tr("Rebrickable gaf een fout ($code).", "Rebrickable returned an error ($code)."))
             }
         } catch (e: IOException) {
-            throw ApiException("Geen verbinding met Rebrickable. Controleer je internet.")
+            throw ApiException(tr("Geen verbinding met Rebrickable. Controleer je internet.", "Can't reach Rebrickable. Check your internet connection."))
         } finally {
             conn.disconnect()
         }
