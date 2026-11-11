@@ -25,7 +25,14 @@ data class RemoteBuild(
     val status: BuildStatus,
     val totalSec: Long,
     val sessions: Int,
+    val completedMs: Long? = null,
 )
+
+/**
+ * The portfolio saved online. [fromBuilds]: rebuilt from the public builds, so each set has one session
+ * holding its total time; those must only fill in sets this device doesn't have, or time is counted twice.
+ */
+data class Backup(val portfolio: List<PortfolioEntry>, val fromBuilds: Boolean)
 
 /** What the leaderboard can be ordered by; [column] is the profiles column, ascending only for speed. */
 enum class LeaderboardSort(private val labelNl: String, private val labelEn: String, val column: String, val ascending: Boolean = false) {
@@ -69,7 +76,7 @@ class CommunityApi(baseUrl: String, private val anonKey: String) {
     suspend fun refresh(a: Account): Account {
         val body = JSONObject().put("refresh_token", a.refreshToken)
         return account(JSONObject(request("POST", "/auth/v1/token?grant_type=refresh_token", token = null, body = body.toString())))
-            .let { it.copy(username = it.username.ifBlank { a.username }) }
+            .let { it.copy(username = it.username.ifBlank { a.username }, restored = a.restored) }
     }
 
     suspend fun signOut(a: Account) {
@@ -127,6 +134,46 @@ class CommunityApi(baseUrl: String, private val anonKey: String) {
         request("DELETE", "/rest/v1/builds?user_id=eq.${a.userId}$filter", a.accessToken, body = null, prefer = "return=minimal")
     }
 
+    // ---------------------------------------------------------------- private backup
+
+    /** Stores the whole portfolio, every session included, in the owner-only backups table. */
+    suspend fun pushBackup(a: Account, portfolio: List<PortfolioEntry>) {
+        val body = JSONObject()
+            .put("user_id", a.userId)
+            .put("data", JSONObject().put("version", 1).put("portfolio", portfolioToJson(portfolio)))
+            .put("updated_at", java.time.Instant.now().toString())
+        request("POST", "/rest/v1/backups", a.accessToken, body.toString(), prefer = "resolution=merge-duplicates,return=minimal")
+    }
+
+    /**
+     * The portfolio saved online for this account. Falls back to the public builds (one session per set,
+     * holding its total time) for accounts that only ever synced with a version without backups.
+     */
+    suspend fun fetchBackup(a: Account): Backup {
+        val arr = try {
+            JSONArray(request("GET", "/rest/v1/backups?select=data&user_id=eq.${a.userId}", a.accessToken, body = null))
+        } catch (e: AuthExpiredException) {
+            throw e
+        } catch (e: ApiException) {
+            JSONArray() // The backups table isn't in this Supabase project yet: use the builds.
+        }
+        if (arr.length() > 0) {
+            val data = arr.getJSONObject(0).getJSONObject("data")
+            return Backup(portfolioFromJson(data.optJSONArray("portfolio") ?: JSONArray()), fromBuilds = false)
+        }
+        return Backup(fromBuilds = true, portfolio = builds(a.userId).map { b ->
+            val end = b.completedMs ?: System.currentTimeMillis()
+            val start = end - b.totalSec * 1000
+            PortfolioEntry(
+                set = b.set,
+                status = b.status,
+                addedMs = start,
+                completedMs = b.completedMs,
+                sessions = if (b.totalSec > 0) listOf(Session(id = start, startMs = start, durSec = b.totalSec)) else emptyList(),
+            )
+        })
+    }
+
     // ---------------------------------------------------------------- reading (public, no account needed)
 
     suspend fun leaderboard(sort: LeaderboardSort): List<Player> {
@@ -159,6 +206,7 @@ class CommunityApi(baseUrl: String, private val anonKey: String) {
                 status = runCatching { BuildStatus.valueOf(o.getString("status")) }.getOrDefault(BuildStatus.PLANNED),
                 totalSec = o.optLong("total_sec"),
                 sessions = o.optInt("sessions"),
+                completedMs = if (o.isNull("completed_at")) null else runCatching { java.time.OffsetDateTime.parse(o.getString("completed_at")).toInstant().toEpochMilli() }.getOrNull(),
             )
         }
     }

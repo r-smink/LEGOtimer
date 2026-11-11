@@ -61,7 +61,36 @@ data class Account(
     val accessToken: String,
     val refreshToken: String,
     val expiresAtMs: Long,
+    /**
+     * The cloud backup has been merged into this device's portfolio. Until then nothing is published,
+     * so a fresh install signing in can never overwrite the builds stored online with an empty list.
+     */
+    val restored: Boolean = false,
 )
+
+/**
+ * Combines this device's portfolio with the cloud backup without losing anything: sets missing here are
+ * added, and sessions are joined by id. For a set on both sides the local status wins. Only one set can
+ * be the current build, so extra ones from the backup become planned.
+ */
+fun mergePortfolios(local: List<PortfolioEntry>, remote: List<PortfolioEntry>): List<PortfolioEntry> {
+    val remoteBySet = remote.associateBy { it.set.setNum }
+    val merged = local.map { e ->
+        val r = remoteBySet[e.set.setNum] ?: return@map e
+        val ids = e.sessions.mapTo(HashSet()) { it.id }
+        e.copy(
+            addedMs = minOf(e.addedMs, r.addedMs),
+            completedMs = e.completedMs ?: r.completedMs.takeIf { e.status == BuildStatus.DONE },
+            sessions = (e.sessions + r.sessions.filter { it.id !in ids }).sortedBy { it.startMs },
+        )
+    } + remote.filter { r -> local.none { it.set.setNum == r.set.setNum } }
+    var hasCurrent = false
+    return merged.map { e ->
+        if (e.status != BuildStatus.CURRENT) e
+        else if (hasCurrent) e.copy(status = BuildStatus.PLANNED)
+        else e.also { hasCurrent = true }
+    }
+}
 
 data class AppData(
     val portfolio: List<PortfolioEntry> = emptyList(),

@@ -37,6 +37,7 @@ import nl.nextbuzz.bricktimer.data.DEFAULT_OPENROUTER_MODEL
 import nl.nextbuzz.bricktimer.data.Confidence
 import nl.nextbuzz.bricktimer.data.LeaderboardSort
 import nl.nextbuzz.bricktimer.data.LegoSet
+import nl.nextbuzz.bricktimer.data.mergePortfolios
 import nl.nextbuzz.bricktimer.data.OpenRouterApi
 import nl.nextbuzz.bricktimer.data.Player
 import nl.nextbuzz.bricktimer.data.PortfolioEntry
@@ -154,6 +155,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val openRouter = OpenRouterApi()
     private val community = CommunityApi(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY)
     private val refreshLock = Mutex()
+    private val syncLock = Mutex()
 
     /** False when this build has no Supabase project configured. */
     val communityEnabled: Boolean get() = community.configured
@@ -497,10 +499,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _manualSessionTarget.value = null
     }
 
-    fun addManualSession(setNum: String, minutes: Int) {
+    /** @param startMs when the session began; it may not end in the future. */
+    fun addManualSession(setNum: String, minutes: Int, startMs: Long) {
         if (minutes <= 0) return
+        val start = minOf(startMs, System.currentTimeMillis() - minutes * 60_000L)
         val before = repo.value
-        val res = repo.addManualSession(setNum, minutes.toLong()) ?: return
+        val res = repo.addManualSession(setNum, minutes.toLong(), start) ?: return
         val (entry, session) = res
         val total = repo.value.entry(setNum)?.totalSec ?: session.durSec
         val badges = mutableListOf<Badge>()
@@ -667,19 +671,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun pushToCommunity() {
-        if (repo.value.account == null) return
+    private suspend fun pushToCommunity() = syncLock.withLock {
+        if (repo.value.account == null) return@withLock
         try {
             withAuth { account ->
+                // Never publish before the backup is in: an empty fresh install would wipe the builds online.
+                if (!account.restored) restoreBackup(account)
                 val d = repo.value
                 community.pushStats(account, builderStats(d))
                 community.pushBuilds(account, d.portfolio)
+                community.pushBackup(account, d.portfolio)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             // Offline or a server hiccup: the next change or app start tries again.
         }
+    }
+
+    /** Merges the portfolio saved online into this device's, then marks the account as restored. */
+    private suspend fun restoreBackup(account: Account) {
+        val backup = community.fetchBackup(account)
+        var added = 0
+        update { d ->
+            val remote = if (backup.fromBuilds) backup.portfolio.filter { r -> d.entry(r.set.setNum) == null } else backup.portfolio
+            val merged = mergePortfolios(d.portfolio, remote)
+            added = merged.sumOf { it.sessions.size } - d.portfolio.sumOf { it.sessions.size }
+            d.copy(
+                portfolio = merged,
+                account = d.account?.let { if (it.userId == account.userId) it.copy(restored = true) else it },
+            )
+        }
+        if (added > 0) toast(tr("$added bouwsessie(s) teruggezet uit je online backup", "Restored $added build session(s) from your online backup"))
     }
 
     fun ensureLeaderboard() {

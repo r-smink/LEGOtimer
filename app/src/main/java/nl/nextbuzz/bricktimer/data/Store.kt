@@ -72,9 +72,10 @@ fun legoSetFromJson(o: JSONObject) = LegoSet(
     numMinifigs = if (o.has("num_minifigs") && !o.isNull("num_minifigs")) o.optInt("num_minifigs") else null,
 )
 
-private fun appDataToJson(d: AppData): JSONObject {
-    val portfolio = JSONArray()
-    d.portfolio.forEach { e ->
+/** The portfolio with every session; also the format of the cloud backup. */
+fun portfolioToJson(portfolio: List<PortfolioEntry>): JSONArray {
+    val arr = JSONArray()
+    portfolio.forEach { e ->
         val sessions = JSONArray()
         e.sessions.forEach { s ->
             sessions.put(
@@ -82,7 +83,7 @@ private fun appDataToJson(d: AppData): JSONObject {
                     .put("progress", s.progressPct ?: JSONObject.NULL).put("progressNote", s.progressNote ?: JSONObject.NULL)
             )
         }
-        portfolio.put(
+        arr.put(
             JSONObject()
                 .put("set", legoSetToJson(e.set))
                 .put("status", e.status.name)
@@ -91,44 +92,47 @@ private fun appDataToJson(d: AppData): JSONObject {
                 .put("sessions", sessions)
         )
     }
-    return JSONObject()
-        .put("portfolio", portfolio)
-        .put("timer", JSONObject().put("running", d.timer.running).put("start", d.timer.startMs))
-        .put("apiKey", d.apiKey)
-        .put("openRouterKey", d.openRouterKey)
-        .put("openRouterModel", d.openRouterModel)
-        .put("themeMode", d.themeMode.name)
-        .put("language", d.language.name)
-        .put("premium", d.premium)
-        .put("account", d.account?.let { a ->
-            JSONObject().put("userId", a.userId).put("email", a.email).put("username", a.username)
-                .put("access", a.accessToken).put("refresh", a.refreshToken).put("expires", a.expiresAtMs)
-        } ?: JSONObject.NULL)
+    return arr
 }
 
+fun portfolioFromJson(arr: JSONArray): List<PortfolioEntry> = (0 until arr.length()).map { i ->
+    val e = arr.getJSONObject(i)
+    val ss = e.optJSONArray("sessions") ?: JSONArray()
+    PortfolioEntry(
+        set = legoSetFromJson(e.getJSONObject("set")),
+        status = runCatching { BuildStatus.valueOf(e.getString("status")) }.getOrDefault(BuildStatus.PLANNED),
+        addedMs = e.optLong("added"),
+        completedMs = if (e.isNull("completed")) null else e.optLong("completed"),
+        sessions = (0 until ss.length()).map { j ->
+            val s = ss.getJSONObject(j)
+            Session(
+                s.getLong("id"), s.getLong("start"), s.getLong("dur"),
+                progressPct = if (s.has("progress") && !s.isNull("progress")) s.optInt("progress") else null,
+                progressNote = if (s.has("progressNote")) s.optStringOrNull("progressNote") else null,
+            )
+        },
+    )
+}
+
+private fun appDataToJson(d: AppData): JSONObject = JSONObject()
+    .put("portfolio", portfolioToJson(d.portfolio))
+    .put("timer", JSONObject().put("running", d.timer.running).put("start", d.timer.startMs))
+    .put("apiKey", d.apiKey)
+    .put("openRouterKey", d.openRouterKey)
+    .put("openRouterModel", d.openRouterModel)
+    .put("themeMode", d.themeMode.name)
+    .put("language", d.language.name)
+    .put("premium", d.premium)
+    .put("account", d.account?.let { a ->
+        JSONObject().put("userId", a.userId).put("email", a.email).put("username", a.username)
+            .put("access", a.accessToken).put("refresh", a.refreshToken).put("expires", a.expiresAtMs)
+            .put("restored", a.restored)
+    } ?: JSONObject.NULL)
+
 private fun appDataFromJson(o: JSONObject): AppData {
-    val arr = o.optJSONArray("portfolio") ?: JSONArray()
-    val portfolio = (0 until arr.length()).map { i ->
-        val e = arr.getJSONObject(i)
-        val ss = e.optJSONArray("sessions") ?: JSONArray()
-        PortfolioEntry(
-            set = legoSetFromJson(e.getJSONObject("set")),
-            status = runCatching { BuildStatus.valueOf(e.getString("status")) }.getOrDefault(BuildStatus.PLANNED),
-            addedMs = e.optLong("added"),
-            completedMs = if (e.isNull("completed")) null else e.optLong("completed"),
-            sessions = (0 until ss.length()).map { j ->
-                val s = ss.getJSONObject(j)
-                Session(
-                    s.getLong("id"), s.getLong("start"), s.getLong("dur"),
-                    progressPct = if (s.has("progress") && !s.isNull("progress")) s.optInt("progress") else null,
-                    progressNote = if (s.has("progressNote")) s.optStringOrNull("progressNote") else null,
-                )
-            },
-        )
-    }
     val t = o.optJSONObject("timer")
     return AppData(
-        portfolio = portfolio,
+        portfolio = portfolioFromJson(o.optJSONArray("portfolio") ?: JSONArray()),
         timer = TimerState(t?.optBoolean("running") ?: false, t?.optLong("start") ?: 0L),
         apiKey = o.optString("apiKey", ""),
         openRouterKey = o.optString("openRouterKey", ""),
@@ -140,6 +144,8 @@ private fun appDataFromJson(o: JSONObject): AppData {
             Account(
                 a.getString("userId"), a.optString("email"), a.optString("username"),
                 a.getString("access"), a.getString("refresh"), a.optLong("expires"),
+                // Accounts saved by older versions were already publishing this device's portfolio.
+                restored = a.optBoolean("restored", true),
             )
         },
     )

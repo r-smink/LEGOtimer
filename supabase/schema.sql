@@ -67,3 +67,18 @@ $$;
 
 revoke execute on function public.delete_account() from anon, public;
 grant execute on function public.delete_account() to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Private backup of each builder's full portfolio, every session included, so a
+-- reinstall or new phone gets everything back after signing in. Owner-only: unlike
+-- profiles and builds, nobody else can read it.
+-- Existing project? Run only this part in the SQL Editor.
+create table public.backups (
+  user_id    uuid primary key references auth.users on delete cascade,
+  data       jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.backups enable row level security;
+
+create policy "own backup" on public.backups for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

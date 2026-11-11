@@ -30,6 +30,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,9 +70,15 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import nl.nextbuzz.bricktimer.data.BuildStatus
 import nl.nextbuzz.bricktimer.data.LegoSet
 import nl.nextbuzz.bricktimer.data.PortfolioEntry
+import nl.nextbuzz.bricktimer.logic.Fmt
 import nl.nextbuzz.bricktimer.logic.tr
 import nl.nextbuzz.bricktimer.ui.theme.Brand
 import nl.nextbuzz.bricktimer.ui.theme.LocalAppColors
@@ -314,19 +329,30 @@ fun BuildProgressCard(pct: Int, note: String, confidence: String?, modifier: Mod
 }
 
 /** Dialog for manually adding a session duration for a build when timer was forgotten. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddManualSessionDialog(
     portfolio: List<PortfolioEntry>,
     initialSet: LegoSet?,
-    onSave: (setNum: String, minutes: Int) -> Unit,
+    onSave: (setNum: String, minutes: Int, startMs: Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val c = LocalAppColors.current
     var selectedSetNum by remember { mutableStateOf(initialSet?.setNum ?: portfolio.firstOrNull()?.set?.setNum.orEmpty()) }
     var hoursText by remember { mutableStateOf("0") }
     var minutesText by remember { mutableStateOf("30") }
+    // Null until a date or time is picked: then the session simply ends now.
+    var pickedStart by remember { mutableStateOf<LocalDateTime?>(null) }
+    var pickDate by remember { mutableStateOf(false) }
+    var pickTime by remember { mutableStateOf(false) }
 
     val totalMin = (hoursText.toIntOrNull() ?: 0) * 60 + (minutesText.toIntOrNull() ?: 0)
+    val zone = ZoneId.systemDefault()
+    val now = System.currentTimeMillis()
+    val start = pickedStart ?: LocalDateTime.ofInstant(Instant.ofEpochMilli(now - totalMin * 60_000L), zone).withSecond(0).withNano(0)
+    val startMs = start.atZone(zone).toInstant().toEpochMilli()
+    val inFuture = startMs + totalMin * 60_000L > now + 60_000L
+    val canSave = totalMin > 0 && selectedSetNum.isNotEmpty() && !inFuture
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -404,17 +430,80 @@ fun AddManualSessionDialog(
                 }
             }
 
+            Overline(tr("Begonnen op", "Started on"))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PickerField(Fmt.date(startMs), Modifier.weight(1.4f)) { pickDate = true }
+                PickerField(Fmt.time(startMs), Modifier.weight(1f)) { pickTime = true }
+            }
+            T(
+                if (inFuture) tr("Deze sessie zou in de toekomst eindigen. Kies een eerder tijdstip.", "This session would end in the future. Pick an earlier time.")
+                else tr("Van ${Fmt.range(startMs, totalMin * 60L)}", "From ${Fmt.range(startMs, totalMin * 60L)}"),
+                12.sp, color = if (inFuture) Brand.Danger else c.textMuted,
+            )
+
             Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 T(tr("Annuleren", "Cancel"), 14.sp, Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onDismiss).padding(12.dp), weight = FontWeight.SemiBold, color = c.textMuted)
                 GradientButton(
                     tr("Toevoegen", "Add"),
-                    { if (totalMin > 0 && selectedSetNum.isNotEmpty()) onSave(selectedSetNum, totalMin) },
-                    brush = if (totalMin > 0 && selectedSetNum.isNotEmpty()) Brand.gradient else Brush.linearGradient(listOf(Brand.Gray400, Brand.Gray400)),
+                    { if (canSave) onSave(selectedSetNum, totalMin, startMs) },
+                    brush = if (canSave) Brand.gradient else Brush.linearGradient(listOf(Brand.Gray400, Brand.Gray400)),
                     fontSize = 14.sp, vertical = 11.dp, horizontal = 18.dp,
                 )
             }
         }
     }
+
+    if (pickDate) {
+        // The date picker works in UTC midnights; the session's clock time stays as it was.
+        val todayUtc = LocalDate.now(zone).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = start.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= todayUtc
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { pickDate = false },
+            confirmButton = {
+                TextButton({
+                    state.selectedDateMillis?.let { ms ->
+                        pickedStart = LocalDateTime.of(Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate(), start.toLocalTime())
+                    }
+                    pickDate = false
+                }) { Text(tr("OK", "OK")) }
+            },
+            dismissButton = { TextButton({ pickDate = false }) { Text(tr("Annuleren", "Cancel")) } },
+        ) { DatePicker(state) }
+    }
+
+    if (pickTime) {
+        val state = rememberTimePickerState(initialHour = start.hour, initialMinute = start.minute, is24Hour = true)
+        AlertDialog(
+            onDismissRequest = { pickTime = false },
+            confirmButton = {
+                TextButton({
+                    pickedStart = start.withHour(state.hour).withMinute(state.minute)
+                    pickTime = false
+                }) { Text(tr("OK", "OK")) }
+            },
+            dismissButton = { TextButton({ pickTime = false }) { Text(tr("Annuleren", "Cancel")) } },
+            title = { Text(tr("Begintijd", "Start time")) },
+            text = { TimePicker(state) },
+        )
+    }
+}
+
+/** A tappable field showing a picked value, such as a date or time. */
+@Composable
+private fun PickerField(value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val c = LocalAppColors.current
+    T(
+        value, 15.sp,
+        modifier.clip(RoundedCornerShape(10.dp)).background(c.sunken)
+            .border(2.dp, c.border, RoundedCornerShape(10.dp)).clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        weight = FontWeight.Bold, maxLines = 1,
+    )
 }
 
 @Composable

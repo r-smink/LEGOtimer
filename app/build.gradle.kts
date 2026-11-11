@@ -21,8 +21,8 @@ android {
         applicationId = "nl.nextbuzz.bricktimer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 7
+        versionName = "1.6"
 
         buildConfigField("String", "REBRICKABLE_API_KEY", "\"$rebrickableKey\"")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
@@ -36,8 +36,10 @@ android {
         }
         release {
             buildConfigField("String", "AD_UNIT_TIMER", "\"ca-app-pub-3296149774798998/9036674263\"")
-            isMinifyEnabled = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            // R8 shrinks and obfuscates the code; Play warns about apps that aren't obfuscated.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 

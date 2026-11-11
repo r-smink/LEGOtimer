@@ -61,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -261,7 +262,7 @@ fun BrickTimerApp(vm: AppViewModel, onExit: () -> Unit) {
         AddManualSessionDialog(
             portfolio = data.portfolio,
             initialSet = manualSessionTarget,
-            onSave = { setNum, minutes -> vm.addManualSession(setNum, minutes) },
+            onSave = { setNum, minutes, startMs -> vm.addManualSession(setNum, minutes, startMs) },
             onDismiss = vm::closeManualSession,
         )
     }
@@ -420,12 +421,21 @@ private fun SettingsDialog(
                 T(tr("Reclamevrij ✓ Bedankt voor je steun!", "Ad-free ✓ Thanks for your support!"), 14.sp, weight = FontWeight.SemiBold, color = c.accent)
             } else {
                 GradientButton(
-                    if (price != null) tr("Reclamevrij voor $price", "Go ad-free for $price") else tr("Reclamevrij maken", "Go ad-free"),
-                    onBuyPremium, Modifier.fillMaxWidth(), fontSize = 14.sp, vertical = 12.dp,
+                    tr("Reclamevrij maken", "Go ad-free"),
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    brush = Brush.linearGradient(listOf(Brand.Gray400, Brand.Gray400)),
+                    glow = Color.Transparent,
+                    fontSize = 14.sp,
+                    vertical = 12.dp,
+                )
+                T(
+                    tr("Binnenkort beschikbaar", "Coming soon"),
+                    12.sp, Modifier.padding(top = 6.dp), weight = FontWeight.Bold, color = c.accent,
                 )
                 T(
                     tr("Eenmalige aankoop: geen advertentie meer bij het starten van de timer.", "One-time purchase: no more ads when you start the timer."),
-                    12.sp, Modifier.padding(top = 6.dp), color = c.textMuted, lineHeight = 17.sp,
+                    12.sp, Modifier.padding(top = 4.dp), color = c.textMuted, lineHeight = 17.sp,
                 )
                 if (onAdPrivacy != null) {
                     T(
