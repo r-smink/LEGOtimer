@@ -21,8 +21,8 @@ android {
         applicationId = "nl.nextbuzz.bricktimer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.7"
 
         buildConfigField("String", "REBRICKABLE_API_KEY", "\"$rebrickableKey\"")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
@@ -76,6 +76,9 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     implementation("com.google.android.gms:play-services-ads:25.5.0")
+    // AdMob brings WorkManager 2.7 (Room 2.2), whose R8 rules predate full mode: its database got stripped
+    // and the release build crashed on start. Newer versions ship the right rules.
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("com.google.android.ump:user-messaging-platform:4.0.0")
     implementation("com.android.billingclient:billing-ktx:9.1.0")
 }

@@ -11,3 +11,7 @@
 # Readable line numbers in Play crash reports; Play deobfuscates with the mapping file in the bundle.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# WorkManager (pulled in by AdMob) creates its Room database by reflection.
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
+-keep class androidx.work.impl.** { <init>(...); }
